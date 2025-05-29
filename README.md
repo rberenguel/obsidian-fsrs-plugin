@@ -35,6 +35,31 @@ I have also only barely styled it enough to be usable.
 - [ ] Some sort of calendar view of what will be due soon (and then, the option to review early)
 - [ ] Deeper integration with other Obsidian features (no idea yet, but I'll come up with something neat)
 
+## Installing
+
+### From a release
+
+Copy over `main.js`, `styles.css`, `manifest.json` from the release you want to your vault 
+`VaultFolder/.obsidian/plugins/obsidian-fsrs-plugin/`.
+
+Note that the source code _does not_ include `main.js`, make sure you copy that if you unzip
+the source release in your plugins folder.
+
+I'll try to always remember to create a separate zip that can be unzipped directly
+under `.obsidian/plugins/`, if I do it will be named `obsidian-fsrs-plugin` in the release.
+
+### From HEAD / latest
+
+Clone this repository on your vault, under `VaultFolder/.obsidian/plugins/` and trigger a build
+(from inside the cloned repository folder):
+
+```
+npm i
+npm run dev # or npm run build
+```
+
+This will create the built `main.js`.
+
 ## Attribution
 
 - [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) I used the JS build directly. I've never enjoyed
