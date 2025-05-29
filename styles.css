@@ -1,0 +1,67 @@
+.quiz-rating-container {
+	margin-top: 15px; /* Space above the button group */
+}
+
+.quiz-rating-button {
+	padding: 8px 15px;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	font-weight: bold;
+	color: #fdf6e3; 
+}
+
+.quiz-rating-again {
+    color: black !important;
+	background-color: #dc322f !important;
+} 
+.quiz-rating-hard {
+    color: black !important;
+	background-color: #b58900 !important;
+} 
+.quiz-rating-good {
+    color: black !important;
+	background-color: #859900 !important;
+}
+.quiz-rating-easy {
+    color: black !important;
+	background-color: #268bd2 !important;
+}
+
+.quiz-rating-button:hover {
+	opacity: 0.85;
+}
+.quiz-rating-button:focus {
+	outline: 2px solid #586e75;
+	outline-offset: 2px;
+}
+
+.quiz-modal-content .quiz-question {
+	margin-bottom: 20px; 
+}
+
+.quiz-modal-content .quiz-modal-title {
+	margin-bottom: 15px;
+}
+
+/* Style for the clickable area if you keep it distinct */
+.quiz-question-container {
+	cursor: pointer; 
+	padding: 10px; 
+	border: 1px dashed var(--background-modifier-border); 
+	border-radius: 5px;
+}
+
+.quiz-question-container:hover {
+	border-color: var(--interactive-accent);
+}
+
+.quiz-answer-container {
+	padding: 10px; 
+	border: 1px dashed var(--background-modifier-border); 
+	border-radius: 5px;
+    margin-top: 1em;
+}
+
+.quiz-answer {
+}
