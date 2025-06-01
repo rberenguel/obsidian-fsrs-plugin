@@ -42,6 +42,82 @@ export class QuizModal extends Modal {
 	}
 
 	// In QuizModal class (src/QuizModal.ts)
+	private transformClozesInElement(element: HTMLElement) {
+		const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+		let node;
+		const nodesToReplaceDetails: {
+			originalNode: Node;
+			replacementFragment: DocumentFragment;
+		}[] = [];
+
+		while ((node = walker.nextNode())) {
+			if (node.nodeValue === null) continue;
+
+			const textContent = node.nodeValue;
+			// This regex should only match clozes that are NOT the active " [...] " placeholder
+			const clozeRegex =
+				/\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
+
+			let lastIndex = 0;
+			const fragment = document.createDocumentFragment();
+			let matchFoundInTextNode = false;
+			let match;
+
+			while ((match = clozeRegex.exec(textContent)) !== null) {
+				matchFoundInTextNode = true;
+				const contentToRender = match[2]; // e.g., "thing"
+
+				// Add text before the match
+				if (match.index > lastIndex) {
+					fragment.appendChild(
+						document.createTextNode(
+							textContent.substring(lastIndex, match.index),
+						),
+					);
+				}
+
+				// Create the capsule HTML structure
+				// All this is kind of repeated from main.ts
+				const capsule = document.createElement("span");
+				capsule.addClass("fsrs-cloze-capsule");
+
+				const iconPart = capsule.createSpan({
+					cls: "fsrs-cloze-icon-part",
+				});
+				iconPart.setText("?");
+
+				const textPart = capsule.createSpan({
+					cls: "fsrs-cloze-text-part",
+				});
+				textPart.setText(contentToRender);
+
+				fragment.appendChild(capsule);
+
+				lastIndex = clozeRegex.lastIndex;
+			}
+
+			if (matchFoundInTextNode) {
+				if (lastIndex < textContent.length) {
+					fragment.appendChild(
+						document.createTextNode(
+							textContent.substring(lastIndex),
+						),
+					);
+				}
+				nodesToReplaceDetails.push({
+					originalNode: node,
+					replacementFragment: fragment,
+				});
+			}
+		}
+
+		for (const detail of nodesToReplaceDetails) {
+			detail.originalNode.parentNode?.replaceChild(
+				detail.replacementFragment,
+				detail.originalNode,
+			);
+		}
+	}
 
 	async onOpen() {
 		const { contentEl } = this;
@@ -53,10 +129,9 @@ export class QuizModal extends Modal {
 		});
 		titleEl.addClass("quiz-modal-title");
 
-		// --- Start: Revised logic for originalFrontmatterText and originalBodyWithoutFsrs ---
 		const rawFileContent = await this.app.vault.read(this.item.file);
-		this.originalFrontmatterText = ""; // Reset
-		let bodyContentForNoteStructure = rawFileContent; // This will be parsed to get the body *without* FSRS block
+		this.originalFrontmatterText = "";
+		let bodyContentForNoteStructure = rawFileContent;
 
 		const fileCache = this.app.metadataCache.getFileCache(this.item.file);
 		const yamlEndOffset = fileCache?.frontmatterPosition?.end?.offset;
@@ -75,28 +150,24 @@ export class QuizModal extends Modal {
 		}
 		bodyContentForNoteStructure = bodyContentForNoteStructure.trimStart();
 
-		// Now, bodyContentForNoteStructure is the note's content *after* any frontmatter.
-		// We need to parse *this* to strip off any FSRS JSON block from its end
-		// to get the true "original body without FSRS data" for reconstruction.
 		const parsedBodyForReconstruction = this.plugin.parseNoteContent(
 			bodyContentForNoteStructure,
 		);
 		this.originalBodyWithoutFsrs =
 			parsedBodyForReconstruction.existingContent;
-		// --- End: Revised logic ---
 
-		// Now, determine the question and answer based on the item type
+		// Step 1: Prepare the question string - active cloze is " [...] ", others are raw
 		if (
 			this.item.isCloze &&
 			this.item.clozeDetails &&
 			this.item.noteBodyForCloze !== undefined
 		) {
-			// item.noteBodyForCloze was set by startQuizSession from existingContent of a frontmatter-stripped parse.
-			// This is the text *template* for the cloze question.
-			const clozePlaceholderText = " [...] ";
+			const activeClozePlaceholderText = " [...] ";
+			// item.noteBodyForCloze is the full body text (sans frontmatter, sans FSRS block)
+			// It contains all raw cloze placeholders {{q1:text1}}, {{q2:text2}}, etc.
 			this.question = this.item.noteBodyForCloze.replace(
-				this.item.clozeDetails.rawPlaceholder,
-				clozePlaceholderText,
+				this.item.clozeDetails.rawPlaceholder, // e.g., "{{q1:text1}}"
+				activeClozePlaceholderText,
 			);
 			this.answer = this.item.clozeDetails.content;
 		} else if (
@@ -107,21 +178,15 @@ export class QuizModal extends Modal {
 			this.question = this.item.mainQuestion;
 			this.answer = this.item.mainAnswer;
 		} else {
-			new Notice("Error: Could not determine question/answer structure.");
-			this.close();
-			return;
+			/* ... error handling ... */ return;
 		}
 
-		// Defensive checks for empty Q/A
-		if (!this.question && this.item.isCloze) {
+		if (
+			(!this.question && this.item.isCloze) ||
+			(!this.question && !this.item.isCloze && !this.answer)
+		) {
 			contentEl.createEl("p", {
-				text: "Error: Could not generate cloze question.",
-			});
-			return;
-		}
-		if (!this.question && !this.item.isCloze && !this.answer) {
-			contentEl.createEl("p", {
-				text: "Error: Could not parse main question/answer from note body.",
+				text: "Error: Question or answer is missing.",
 			});
 			return;
 		}
@@ -133,6 +198,7 @@ export class QuizModal extends Modal {
 			cls: "quiz-question",
 		});
 
+		// Step 2: Render the markdown (non-active clozes are still raw text like {{q2:banana}})
 		MarkdownRenderer.render(
 			this.app,
 			this.question,
@@ -141,14 +207,21 @@ export class QuizModal extends Modal {
 			this.plugin,
 		);
 
+		// Step 3: Manually process the rendered questionDiv to transform raw clozes into capsules
+		if (this.item.isCloze) {
+			// Only do this if it was a cloze question to begin with
+			this.transformClozesInElement(questionDiv);
+		}
+
 		this.isAnswerShown = false;
 		this.setupShowAnswerInteraction(questionContainer);
-
+		// ... rest of onOpen (key listeners, focus)
 		this.boundHandleKeyPress = this.handleKeyPress.bind(this);
 		this.modalEl.addEventListener("keydown", this.boundHandleKeyPress);
 		this.modalEl.tabIndex = -1;
 		this.modalEl.focus();
 	}
+
 	handleKeyPress(event: KeyboardEvent) {
 		if (!this.isAnswerShown) {
 			if (event.key === " ") {

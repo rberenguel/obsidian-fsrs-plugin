@@ -11,6 +11,10 @@ and let it run with it. I played the role product owner / QA. After that, some c
 
 I wanted a no-dependency (or at least, easy to analyze as a human) spaced repetition tool I could use for _reasons_.
 
+## TODOs
+
+- [ ] There seems to be a random bug in clozes, where they are badly rendered when asking. It does not always happen though.
+
 ## Usage
 
 A question is a note with:
@@ -29,6 +33,14 @@ I have not tested it extensively, just enough to confirm questions happen when t
 in the note and you are only asked for things with the right preamble.
 
 I have also only barely styled it enough to be usable.
+
+You can also have cloze questions with 
+
+```
+Some text {{q1:the placeholder}} some more text {{q2:more placeholders}}.
+```
+
+Each placeholder will create a new question. Only one placeholder per id for now (no simultaneous replacement yet).
 
 ## Future work / TODO
 

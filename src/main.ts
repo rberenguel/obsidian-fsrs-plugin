@@ -1,12 +1,163 @@
-import { App, Notice, Plugin, TFile, moment } from "obsidian";
+import {
+	App,
+	Notice,
+	Plugin,
+	TFile,
+	moment,
+	MarkdownPostProcessorContext,
+} from "obsidian";
 import { fsrs, createEmptyCard, FSRS } from "./fsrs";
 
 import { QuizModal } from "./QuizModal";
 import { FsrsSettingTab } from "./FsrsSettingsTab";
 import { FsrsPluginSettings, DEFAULT_SETTINGS } from "./settings";
+import {
+	// ... your existing obsidian imports ...
+	MarkdownView, // To check current view mode
+	Editor, // For editor extension context
+} from "obsidian";
+
+import {
+	ViewPlugin,
+	ViewUpdate,
+	Decoration,
+	DecorationSet,
+	WidgetType,
+	EditorView, // For type hinting in Widget
+} from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 
 const FSRS_DATA_SEPARATOR = "\n---\n";
 const QA_SEPARATOR = "\n---\n";
+
+class ClozeContentWidget extends WidgetType {
+	constructor(readonly displayedText: string) {
+		super();
+	}
+
+	toDOM(view: EditorView): HTMLElement {
+		const capsule = document.createElement("span");
+		capsule.addClass("fsrs-cloze-capsule");
+
+		const iconPart = capsule.createSpan({ cls: "fsrs-cloze-icon-part" });
+		iconPart.setText("?"); // Or your preferred icon/glyph
+
+		const textPart = capsule.createSpan({ cls: "fsrs-cloze-text-part" });
+		textPart.setText(this.displayedText);
+
+		return capsule;
+	}
+
+	eq(other: ClozeContentWidget) {
+		return other.displayedText === this.displayedText;
+	}
+
+	ignoreEvent() {
+		return true;
+	}
+}
+
+function buildClozeViewPlugin(plugin: FsrsPlugin) {
+	// Pass your plugin instance for settings/app access
+	return ViewPlugin.fromClass(
+		class {
+			decorations: DecorationSet;
+			app = plugin.app; // Store app reference
+			settings = plugin.settings; // Store settings reference
+
+			constructor(view: EditorView) {
+				this.decorations = this.buildDecorations(view);
+			}
+
+			update(update: ViewUpdate) {
+				if (
+					update.docChanged ||
+					update.viewportChanged ||
+					update.selectionSet
+				) {
+					// More targeted updates can be done by checking update.flags
+					// For simplicity, rebuilding on common changes.
+					// Could also check if frontmatter changed if we had a state field for it.
+					this.decorations = this.buildDecorations(update.view);
+				}
+			}
+
+			buildDecorations(view: EditorView): DecorationSet {
+				const builder = new RangeSetBuilder<Decoration>();
+				const quizKey =
+					this.settings.quizFrontmatterKey ||
+					DEFAULT_SETTINGS.quizFrontmatterKey;
+
+				// Get current file and check its frontmatter
+				const currentFile =
+					this.app.workspace.getActiveViewOfType(MarkdownView)?.file;
+				if (currentFile) {
+					const fileCache =
+						this.app.metadataCache.getFileCache(currentFile);
+					if (
+						!fileCache?.frontmatter ||
+						fileCache.frontmatter[quizKey] !== true
+					) {
+						return Decoration.none; // Not a quiz note, no decorations
+					}
+				} else {
+					return Decoration.none; // No active file or not a markdown view
+				}
+				const currentSelection = view.state.selection.main; // Get the primary selection/cursor
+
+				for (const { from, to } of view.visibleRanges) {
+					const text = view.state.doc.sliceString(from, to);
+					const clozeRegex =
+						/\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
+					let match;
+
+					while ((match = clozeRegex.exec(text)) !== null) {
+						const matchStartInDoc = from + match.index;
+						const matchEndInDoc =
+							from + match.index + match[0].length;
+						const contentToRender = match[2];
+
+						// --- BEGIN Condition for Editing ---
+						// Check if the main cursor is within this specific match's range
+						// or if the selection overlaps with this match.
+						const cursorInsideThisMatch =
+							currentSelection.from >= matchStartInDoc &&
+							currentSelection.to <= matchEndInDoc;
+						// More robust overlap check:
+						const selectionOverlapsThisMatch =
+							currentSelection.from < matchEndInDoc &&
+							currentSelection.to > matchStartInDoc;
+						// --- END Condition for Editing ---
+
+						if (selectionOverlapsThisMatch) {
+							// Cursor/selection is inside this cloze, so don't apply special rendering.
+							// Let it display as raw text for editing.
+							// Optionally, you could add a different decoration, e.g., a subtle background
+							// to indicate it's an "active" cloze being edited.
+							// builder.add(matchStartInDoc, matchEndInDoc, Decoration.mark({ class: "cloze-being-edited" }));
+						} else {
+							// Cursor is outside, apply the replacement widget.
+							builder.add(
+								matchStartInDoc,
+								matchEndInDoc,
+								Decoration.replace({
+									widget: new ClozeContentWidget(
+										contentToRender,
+									),
+								}),
+							);
+						}
+					}
+				}
+				return builder.finish();
+			}
+		},
+		{
+			decorations: (v) => v.decorations,
+		},
+	);
+}
 
 export interface Card {
 	due: Date; // Or Date | string if it can be converted. The FSRS functions should clarify this.
@@ -101,25 +252,6 @@ export default class FsrsPlugin extends Plugin {
 					return;
 				}
 
-				// --- Debugging for Live Preview ---
-				// Check if this note is currently in Live Preview mode for this rendering pass
-				// This is an approximation; Obsidian's internal state for this isn't directly exposed here.
-				// However, post-processors run in both modes. The key is what `element` contains.
-				const viewMode = this.app.workspace
-					.getActiveViewOfType(MarkdownView)
-					?.getState().mode; // 'source' or 'preview'
-				const isLivePreviewLikely =
-					viewMode === "source" &&
-					this.app.vault.getConfig("livePreview"); // More complex to be certain for the *specific element*
-
-				console.log(
-					`[FSRS Cloze PP Debug] Running for: ${context.sourcePath}. Approx view mode: ${viewMode}.`,
-				);
-				// Log the HTML of the element the post-processor is working on.
-				// This can be verbose, so you might enable it only when actively debugging a specific case.
-				// console.log(`[FSRS Cloze PP Debug] Element outerHTML:`, element.outerHTML);
-				// --- End Debugging ---
-
 				const walker = document.createTreeWalker(
 					element,
 					NodeFilter.SHOW_TEXT,
@@ -166,11 +298,20 @@ export default class FsrsPlugin extends Plugin {
 							);
 						}
 
-						const span = createSpan({
-							cls: "fsrs-cloze-rendered-content",
+						const capsule = document.createElement("span");
+						capsule.addClass("fsrs-cloze-capsule"); // Use the same outer class
+
+						const iconPart = capsule.createSpan({
+							cls: "fsrs-cloze-icon-part",
 						});
-						span.setText(contentToRender);
-						fragment.appendChild(span);
+						iconPart.setText("❓");
+
+						const textPart = capsule.createSpan({
+							cls: "fsrs-cloze-text-part",
+						});
+						textPart.setText(contentToRender);
+
+						fragment.appendChild(capsule);
 
 						lastIndex = clozeRegex.lastIndex;
 					}
@@ -204,6 +345,8 @@ export default class FsrsPlugin extends Plugin {
 			},
 		);
 		// --- END MarkdownPostProcessor for Cloze Syntax ---
+		const clozeViewPluginExtension = buildClozeViewPlugin(this);
+		this.registerEditorExtension(clozeViewPluginExtension);
 	}
 
 	async setQuizFrontmatterForActiveNote(file: TFile) {

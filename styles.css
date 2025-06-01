@@ -65,3 +65,65 @@
 
 .quiz-answer {
 }
+
+.fsrs-cloze-rendered-content,
+.fsrs-cloze-rendered-widget {
+  background-color: #999; /* Or a specific color like #f0f0f0 for light themes, #303030 for dark */
+  padding: 0.1em 0.3em; /* Small padding */
+  border-radius: 3px;   /* Slightly rounded corners */
+  color: black;
+  /* color: var(--text-normal); /* Ensure text color contrasts with new background if needed */
+}
+
+.fsrs-cloze-rendered-content::before,
+.fsrs-cloze-rendered-widget::before {
+  content: "? "; /* Adds a question mark emoji and a space */
+  border-right: 1px solid black;
+  background-color: #666;
+  margin-right: 0.5em;
+  /* You can adjust the styling of the pseudo-element itself if needed */
+  /* For example, if the emoji size is off or color needs adjustment: */
+  /* font-size: 0.9em; */ /* Adjust size if necessary */
+  /* opacity: 0.7; */ /* Make it slightly less prominent */
+  /* padding-right: 2px; */ /* Add a little space if the default space in content isn't enough */
+}
+
+/* TODO some styles are no longer used */
+
+.fsrs-cloze-capsule {
+  display: inline-flex; /* Allows children to sit side-by-side */
+  align-items: center;   /* Vertically align icon and text if their heights differ */
+  border: 1px solid #333; /* Optional: border around the whole capsule */
+  border-radius: 0.5em;   /* Make it pill-shaped (adjust as needed) */
+  overflow: hidden;      /* Ensures child backgrounds don't bleed past rounded corners */
+  font-style: normal;    /* Override previous italic if any */
+  line-height: 1.3;      /* Adjust for better vertical centering with padding */
+}
+
+/* Icon part of the capsule */
+.fsrs-cloze-icon-part {
+  background-color: #666; /* Example: Theme accent for icon background */
+  color: black; /* Text color that contrasts with icon background */
+  padding: 0.2em 0.5em; /* Adjust padding for icon */
+  /* border-radius: 1em 0 0 1em; /* Round left side - handled by parent usually */
+  margin-right: -1px; /* Hack to prevent double borders if parent also has border */
+}
+
+/* Text part of the capsule */
+.fsrs-cloze-text-part {
+  background-color: #999; /* Example: Secondary background for text */
+  color: black;
+  padding: 0.2em 0.6em; /* Adjust padding for text */
+  /* border-radius: 0 1em 1em 0; /* Round right side - handled by parent usually */
+}
+
+/* Remove underlines from links if they appear inside (Obsidian specific) */
+.fsrs-cloze-capsule a.internal-link,
+.fsrs-cloze-capsule a.external-link {
+    text-decoration: none;
+}
+
+/* Optional: Hover effect for the whole capsule */
+.fsrs-cloze-capsule:hover {
+  border-color: #aaa;
+}
