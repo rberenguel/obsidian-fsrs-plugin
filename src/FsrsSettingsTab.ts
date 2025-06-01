@@ -1,6 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import type FsrsPlugin from './main'; // Use 'type' for type-only import
-import { FsrsPluginSettings } from './settings'; // Import from settings.ts
+import { App, PluginSettingTab, Setting } from "obsidian";
+import type FsrsPlugin from "./main"; // Use 'type' for type-only import
+import { FsrsPluginSettings } from "./settings"; // Import from settings.ts
 
 export class FsrsSettingTab extends PluginSettingTab {
 	plugin: FsrsPlugin;
@@ -109,4 +109,3 @@ export class FsrsSettingTab extends PluginSettingTab {
 			);
 	}
 }
-

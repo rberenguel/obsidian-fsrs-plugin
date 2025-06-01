@@ -1,21 +1,42 @@
-import {
-    App,
-    Notice,
-    Plugin,
-    TFile,
-    moment,
-} from "obsidian";
-import { fsrs, createEmptyCard, FSRS } from "./fsrs"; 
+import { App, Notice, Plugin, TFile, moment } from "obsidian";
+import { fsrs, createEmptyCard, FSRS } from "./fsrs";
 
-import { QuizModal } from './QuizModal';
-import { FsrsSettingTab } from './FsrsSettingsTab';
-import { FsrsPluginSettings, DEFAULT_SETTINGS } from './settings';
+import { QuizModal } from "./QuizModal";
+import { FsrsSettingTab } from "./FsrsSettingsTab";
+import { FsrsPluginSettings, DEFAULT_SETTINGS } from "./settings";
 
 const FSRS_DATA_SEPARATOR = "\n---\n";
 const QA_SEPARATOR = "\n---\n";
 
-export default class FsrsPlugin extends Plugin { 
-    settings: FsrsPluginSettings;
+export interface Card {
+	due: Date; // Or Date | string if it can be converted. The FSRS functions should clarify this.
+	stability: number;
+	difficulty: number;
+	elapsed_days: number;
+	scheduled_days: number;
+	reps: number;
+	lapses: number;
+	state: "new" | "learning" | "review" | "relearning"; // Confirm these states with your FSRS library
+}
+
+export interface QuizItem {
+	file: TFile;
+	card: Card; // The specific FSRS card for this item
+	identifier: string; // "_default" for main Q/A, or the cloze ID
+	isCloze: boolean;
+	// For clozes:
+	noteBodyForCloze?: string; // The entire note body (pre-FSRS block) to construct the cloze question
+	clozeDetails?: { id: string; content: string; rawPlaceholder: string }; // Details of the specific cloze
+	// For simple Q/A:
+	mainQuestion?: string;
+	mainAnswer?: string;
+	// The complete FSRS data structure for the *entire note*
+	// This is what gets saved back. For cloze notes, it's a map. For simple notes, it's the single card.
+	fsrsDataStoreForNote: Record<string, Card> | Card | null;
+}
+
+export default class FsrsPlugin extends Plugin {
+	settings: FsrsPluginSettings;
 	public fsrsInstance: FSRS;
 	async onload() {
 		await this.loadSettings();
@@ -65,6 +86,124 @@ export default class FsrsPlugin extends Plugin {
 
 		// Potentially add a setting tab for quizTag etc.
 		this.addSettingTab(new FsrsSettingTab(this.app, this));
+
+		// Inside FsrsPlugin class in main.ts, within the onload method:
+
+		this.registerMarkdownPostProcessor(
+			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
+				const quizKey =
+					this.settings.quizFrontmatterKey ||
+					DEFAULT_SETTINGS.quizFrontmatterKey;
+				if (
+					!context.frontmatter ||
+					context.frontmatter[quizKey] !== true
+				) {
+					return;
+				}
+
+				// --- Debugging for Live Preview ---
+				// Check if this note is currently in Live Preview mode for this rendering pass
+				// This is an approximation; Obsidian's internal state for this isn't directly exposed here.
+				// However, post-processors run in both modes. The key is what `element` contains.
+				const viewMode = this.app.workspace
+					.getActiveViewOfType(MarkdownView)
+					?.getState().mode; // 'source' or 'preview'
+				const isLivePreviewLikely =
+					viewMode === "source" &&
+					this.app.vault.getConfig("livePreview"); // More complex to be certain for the *specific element*
+
+				console.log(
+					`[FSRS Cloze PP Debug] Running for: ${context.sourcePath}. Approx view mode: ${viewMode}.`,
+				);
+				// Log the HTML of the element the post-processor is working on.
+				// This can be verbose, so you might enable it only when actively debugging a specific case.
+				// console.log(`[FSRS Cloze PP Debug] Element outerHTML:`, element.outerHTML);
+				// --- End Debugging ---
+
+				const walker = document.createTreeWalker(
+					element,
+					NodeFilter.SHOW_TEXT,
+				);
+				let node;
+				const nodesToReplace: {
+					originalNode: Node;
+					replacementFragment: DocumentFragment;
+				}[] = [];
+
+				while ((node = walker.nextNode())) {
+					if (node.nodeValue === null) continue;
+
+					const textContent = node.nodeValue;
+					// Only log if there's a hint of cloze syntax to reduce noise
+					if (textContent.includes("{{")) {
+						console.log(
+							`[FSRS Cloze PP Debug] Text node content: "${textContent}"`,
+						);
+					}
+
+					const clozeRegex =
+						/\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
+					let lastIndex = 0;
+					const fragment = document.createDocumentFragment();
+					let matchFound = false;
+					let match;
+
+					while ((match = clozeRegex.exec(textContent)) !== null) {
+						matchFound = true;
+						const contentToRender = match[2];
+						console.log(
+							`[FSRS Cloze PP Debug] Found cloze content to render: "${contentToRender}" in text node "${textContent}"`,
+						);
+
+						if (match.index > lastIndex) {
+							fragment.appendChild(
+								document.createTextNode(
+									textContent.substring(
+										lastIndex,
+										match.index,
+									),
+								),
+							);
+						}
+
+						const span = createSpan({
+							cls: "fsrs-cloze-rendered-content",
+						});
+						span.setText(contentToRender);
+						fragment.appendChild(span);
+
+						lastIndex = clozeRegex.lastIndex;
+					}
+
+					if (matchFound) {
+						if (lastIndex < textContent.length) {
+							fragment.appendChild(
+								document.createTextNode(
+									textContent.substring(lastIndex),
+								),
+							);
+						}
+						nodesToReplace.push({
+							originalNode: node,
+							replacementFragment: fragment,
+						});
+					}
+				}
+
+				if (nodesToReplace.length > 0) {
+					console.log(
+						`[FSRS Cloze PP Debug] Attempting to replace ${nodesToReplace.length} node(s)`,
+					);
+					for (const item of nodesToReplace) {
+						item.originalNode.parentNode?.replaceChild(
+							item.replacementFragment,
+							item.originalNode,
+						);
+					}
+				}
+			},
+		);
+		// --- END MarkdownPostProcessor for Cloze Syntax ---
 	}
 
 	async setQuizFrontmatterForActiveNote(file: TFile) {
@@ -162,65 +301,101 @@ export default class FsrsPlugin extends Plugin {
 	 */
 	// In FsrsPlugin class (main.ts)
 	parseNoteContent(content: string) {
-		// 'content' is expected to be the note body (after frontmatter), possibly trimmed at the start
 		let question = "";
 		let answer = "";
-		let fsrsData = null;
-		let contentForQaParsing = content; // This will be the string from which Q & A are extracted.
-		// It's the original body, potentially excluding a valid FSRS block found at its end.
+		let fsrsData: any = null; // Can be single card object or Record<string, any>
+		let contentForQaParsing = content;
+		const identifiedClozes: {
+			id: string;
+			content: string;
+			rawPlaceholder: string;
+		}[] = [];
 
-		// Attempt to find and parse an FSRS JSON block at the very end of the 'content'
-		const parts = content.split(FSRS_DATA_SEPARATOR); // FSRS_DATA_SEPARATOR is "\n---\n"
+		// Regex to find {{id:content}} placeholders
+		// Allows for identifiers without special characters, and content that isn't "}}"
+		const clozeRegex = /\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
 
+		// First, try to separate FSRS data block from the rest of the content
+		const parts = content.split(FSRS_DATA_SEPARATOR);
 		if (parts.length > 1) {
-			// There's at least one '---' separator. Check the last segment.
-			const lastSegment = parts[parts.length - 1].trim(); // Content of the segment after the last '---'
-
+			const lastSegment = parts[parts.length - 1].trim();
 			if (
 				lastSegment.startsWith("```json") &&
 				lastSegment.endsWith("```")
 			) {
-				// The last segment is a valid FSRS JSON code block.
 				try {
 					const jsonString = lastSegment
 						.substring(7, lastSegment.length - 3)
 						.trim();
-					fsrsData = JSON.parse(jsonString);
-					// If FSRS data is found and parsed, then the content for Q/A parsing
-					// is everything *before* this last FSRS block and its preceding '---'.
+					fsrsData = JSON.parse(jsonString); // Keep as parsed
 					contentForQaParsing = parts
 						.slice(0, parts.length - 1)
 						.join(FSRS_DATA_SEPARATOR);
 				} catch (e) {
 					console.error("Failed to parse FSRS JSON from note:", e);
-					// If JSON parsing fails, treat the block as non-FSRS content.
-					// Thus, the full 'content' is used for Q/A parsing (as if no valid FSRS block was at the end).
-					contentForQaParsing = content;
+					fsrsData = null; // Or {} if we prefer to always have an object
+					contentForQaParsing = content; // Full content becomes Q/A if FSRS block is corrupt
 				}
 			} else {
-				// The last segment (after the last '---') is NOT an FSRS JSON block.
-				// Therefore, the full 'content' is considered for Q/A parsing.
+				// Last segment is not FSRS block, so all content is for Q/A
 				contentForQaParsing = content;
 			}
 		} else {
-			// No '---' separator found in the 'content' at all.
-			// So, the full 'content' is for Q/A parsing, and no FSRS block is present.
+			// No FSRS separator found
 			contentForQaParsing = content;
 		}
 
-		// Now, parse question and answer from 'contentForQaParsing'
-		const qaParts = contentForQaParsing.split(QA_SEPARATOR); // QA_SEPARATOR is "\n---\n"
+		// Now, scan the contentForQaParsing for cloze deletions
+		// This content is the note body *before* any FSRS JSON block
+		let match;
+		while ((match = clozeRegex.exec(contentForQaParsing)) !== null) {
+			identifiedClozes.push({
+				id: match[1], // The identifier
+				content: match[2], // The content of the cloze
+				rawPlaceholder: match[0], // The full {{id:content}} string
+			});
+		}
+
+		// Parse main question and answer (if no clozes, or if clozes are alongside main Q/A)
+		// If clozes are present, the main Q/A might be ignored by startQuizSession,
+		// but we parse it for completeness or potential fallback.
+		const qaParts = contentForQaParsing.split(QA_SEPARATOR);
 		question = qaParts[0].trim();
+		// If clozes are present, the "question" here is the entire note body (minus FSRS block),
+		// which will serve as the template for cloze questions.
+		// The "answer" here might be irrelevant if clozes are the primary content.
 		if (qaParts.length > 1) {
 			answer = qaParts.slice(1).join(QA_SEPARATOR).trim();
 		}
 
+		// If no fsrsData was found in a dedicated block, but clozes are identified,
+		// initialize fsrsData as an empty map to hold them.
+		// Otherwise, if clozes are found and fsrsData is a single object, it indicates a migration scenario.
+		if (
+			identifiedClozes.length > 0 &&
+			(fsrsData === null ||
+				!(
+					typeof fsrsData === "object" &&
+					!Array.isArray(fsrsData) &&
+					Object.keys(fsrsData).length > 0 &&
+					!fsrsData.hasOwnProperty("due")
+				))
+		) {
+			// If clozes exist, and FSRS data is null or looks like a single card (heuristic: has 'due' property)
+			// or is not an object that could be a map of cards.
+			// This is a bit tricky: if fsrsData is a single card, startQuizSession will need to handle migrating it.
+			// For now, if clozes are present and fsrsData is null, let's make it an empty object.
+			if (fsrsData === null) {
+				fsrsData = {};
+			}
+		}
+
 		return {
-			question,
-			answer,
-			fsrsData, // This is the parsed FSRS data (object or null)
-			existingContent: contentForQaParsing.trim(), // This becomes 'originalBodyWithoutFsrs'
-			// It's the body content, *excluding* the FSRS JSON block if one was successfully parsed.
+			question, // Main question (full text if clozes are present)
+			answer, // Main answer (might be ignored if clozes are primary)
+			fsrsData, // Parsed from JSON block (could be single obj or map)
+			existingContent: contentForQaParsing.trim(), // Note body before FSRS block
+			identifiedClozes, // Array of found cloze objects
 		};
 	}
 
@@ -236,34 +411,35 @@ export default class FsrsPlugin extends Plugin {
 		noteFile: TFile,
 		originalFrontmatter: string,
 		originalBodyWithoutFsrs: string,
-		fsrsData: object,
+		dataToWrite: Record<string, any> | Card | null, // Can be a map for clozes, or a single card for simple
 	) {
-		const fsrsJsonString = JSON.stringify(fsrsData, null, 2);
+		if (dataToWrite === null) {
+			// Don't write if data is null
+			console.warn("Attempted to write null FSRS data. Skipping.");
+			return;
+		}
+		const fsrsJsonString = JSON.stringify(dataToWrite, null, 2);
 		const newFsrsBlock = `\n\n---\n\`\`\`json\n${fsrsJsonString}\n\`\`\``;
 
 		const newBodyContentWithFsrs =
 			originalBodyWithoutFsrs.trim() + newFsrsBlock;
-
 		let finalNoteContent: string;
 
 		if (originalFrontmatter.length > 0) {
-			// Check if the original frontmatter already ends with a newline.
-			// The yamlEndOffset usually places it after the newline following '---'.
 			if (originalFrontmatter.endsWith("\n")) {
 				finalNoteContent = originalFrontmatter + newBodyContentWithFsrs;
 			} else {
-				// If originalFrontmatter doesn't end with a newline (unusual but possible if offset is different),
-				// explicitly add one.
 				finalNoteContent =
 					originalFrontmatter + "\n" + newBodyContentWithFsrs;
 			}
 		} else {
-			// No original frontmatter, so the note is just the new body with FSRS data.
 			finalNoteContent = newBodyContentWithFsrs;
 		}
 
 		await this.app.vault.modify(noteFile, finalNoteContent);
 	}
+
+	// In FsrsPlugin class (main.ts)
 	async startQuizSession() {
 		const quizNotes = await this.getQuizNotes();
 		if (quizNotes.length === 0) {
@@ -274,66 +450,168 @@ export default class FsrsPlugin extends Plugin {
 		}
 
 		const now = new Date();
-		let dueItems = [];
-		let newItems = [];
+		// console.log(`[FSRS Debug] Starting quiz session. Current time (now): ${now.toISOString()}`);
+
+		const dueItems: QuizItem[] = [];
+		const newItems: QuizItem[] = []; // We still populate this for logging or potential future "review ahead" features
 
 		for (const noteFile of quizNotes) {
-			const content = await this.app.vault.read(noteFile);
-			const { fsrsData } = this.parseNoteContent(content);
+			const rawFileContent = await this.app.vault.read(noteFile);
+			let bodyContentOnly = rawFileContent;
+			const fileCache = this.app.metadataCache.getFileCache(noteFile);
+			const yamlEndOffset = fileCache?.frontmatterPosition?.end?.offset;
+			if (
+				yamlEndOffset &&
+				yamlEndOffset > 0 &&
+				yamlEndOffset <= rawFileContent.length
+			) {
+				bodyContentOnly = rawFileContent.substring(yamlEndOffset);
+			}
+			bodyContentOnly = bodyContentOnly.trimStart();
 
-			if (!fsrsData || !fsrsData.due) {
-				// New card or malformed
-				newItems.push({ file: noteFile, card: createEmptyCard(now) });
-			} else {
-				const card = fsrsData; // Assuming fsrsData is the card object
-				// Ensure card.due is a Date object for comparison
-				const dueDate: Date =
-					typeof card.due === "string"
-						? new Date(card.due)
-						: card.due;
+			const {
+				question,
+				answer,
+				fsrsData,
+				existingContent,
+				identifiedClozes,
+			} = this.parseNoteContent(bodyContentOnly);
+
+			// console.log(`[FSRS Debug][${noteFile.basename}] Parsed fsrsData from note:`, JSON.stringify(fsrsData));
+			// console.log(`[FSRS Debug][${noteFile.basename}] IdentifiedClozes count:`, identifiedClozes.length);
+
+			if (identifiedClozes.length > 0) {
+				let fsrsDataMapForClozes: Record<string, Card> = {};
 				if (
+					fsrsData &&
+					typeof fsrsData === "object" &&
+					!Array.isArray(fsrsData)
+				) {
+					const keys = Object.keys(fsrsData);
+					const looksLikeSingleCard =
+						fsrsData.hasOwnProperty("due") &&
+						fsrsData.hasOwnProperty("stability");
+					if (
+						looksLikeSingleCard &&
+						keys.length < 8 &&
+						!Object.values(fsrsData).some(
+							(v: any) =>
+								typeof v === "object" &&
+								v &&
+								v.hasOwnProperty("due"),
+						)
+					) {
+						console.warn(
+							`[FSRS Info][${noteFile.basename}] Note has clozes, but FSRS data is a single card. Clozes will use new/existing map entries.`,
+						);
+					} else if (!looksLikeSingleCard || keys.length > 0) {
+						fsrsDataMapForClozes = fsrsData as Record<string, Card>;
+					}
+				}
+				// console.log(`[FSRS Debug][${noteFile.basename}] Determined fsrsDataMapForClozes:`, JSON.stringify(fsrsDataMapForClozes));
+
+				for (const cloze of identifiedClozes) {
+					const cardFromMap = fsrsDataMapForClozes[cloze.id];
+					const card: Card =
+						cardFromMap || (createEmptyCard(now) as Card);
+					// const cardIsNew = !cardFromMap;
+					// console.log(`[FSRS Debug][${noteFile.basename}] Cloze ID "${cloze.id}": Card from map was ${cardIsNew ? 'NOT found (new card created)' : 'found'}. Card state: due=${card.due}, stability=${card.stability}, reps=${card.reps}`);
+
+					const dueDate =
+						typeof card.due === "string"
+							? new Date(card.due)
+							: card.due;
+					const isActuallyDue =
+						dueDate instanceof Date &&
+						!isNaN(dueDate.getTime()) &&
+						dueDate <= now;
+					// console.log(`[FSRS Debug][${noteFile.basename}] Cloze ID "${cloze.id}": Parsed due date: ${dueDate.toISOString()}, Is due? ${isActuallyDue}`);
+
+					const quizItem: QuizItem = {
+						file: noteFile,
+						card,
+						identifier: cloze.id,
+						isCloze: true,
+						noteBodyForCloze: existingContent,
+						clozeDetails: cloze,
+						fsrsDataStoreForNote: fsrsDataMapForClozes,
+						mainQuestion: question,
+						mainAnswer: answer,
+					};
+					if (isActuallyDue) {
+						dueItems.push(quizItem);
+					} else {
+						newItems.push(quizItem);
+					}
+				}
+			} else {
+				let cardForSimpleNote: Card;
+				if (
+					fsrsData &&
+					typeof fsrsData === "object" &&
+					fsrsData.hasOwnProperty("due")
+				) {
+					cardForSimpleNote = fsrsData as Card;
+				} else {
+					cardForSimpleNote = createEmptyCard(now) as Card;
+					if (
+						fsrsData !== null &&
+						(typeof fsrsData !== "object" ||
+							Object.keys(fsrsData).length > 0)
+					) {
+						console.warn(
+							`[FSRS Info][${noteFile.basename}] Simple Q/A FSRS data was not a single card or was unexpected. Treating as new/reset. Data:`,
+							fsrsData,
+						);
+					}
+				}
+				const dueDate =
+					typeof cardForSimpleNote.due === "string"
+						? new Date(cardForSimpleNote.due)
+						: cardForSimpleNote.due;
+				const isActuallyDue =
 					dueDate instanceof Date &&
 					!isNaN(dueDate.getTime()) &&
-					dueDate <= now
-				) {
-					dueItems.push({ file: noteFile, card });
-				} else if (!(dueDate instanceof Date) || isNaN(dueDate.getTime())) {
-					console.warn(
-						`Invalid due date for item ${noteFile.path}:`,
-						card.due,
-						"- treating as new.",
-					);
-					newItems.push({
-						file: noteFile,
-						card: createEmptyCard(now),
-					});
+					dueDate <= now;
+				const quizItem: QuizItem = {
+					file: noteFile,
+					card: cardForSimpleNote,
+					identifier: "_default",
+					isCloze: false,
+					mainQuestion: question,
+					mainAnswer: answer,
+					noteBodyForCloze: existingContent,
+					fsrsDataStoreForNote: cardForSimpleNote,
+				};
+				if (isActuallyDue) {
+					dueItems.push(quizItem);
+				} else {
+					newItems.push(quizItem);
 				}
 			}
 		}
 
-		let selectedItem = null;
-		// Prioritize due items, then new items. Could add more sophisticated selection.
+		// --- MODIFIED SELECTION LOGIC ---
 		if (dueItems.length > 0) {
-			// Simple random selection for now
-			selectedItem =
-				dueItems[Math.floor(Math.random() * dueItems.length)];
-		} else if (newItems.length > 0) {
-			selectedItem =
-				newItems[Math.floor(Math.random() * newItems.length)];
-		}
+			const shuffleArray = (array: QuizItem[]) => {
+				for (let i = array.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[array[i], array[j]] = [array[j], array[i]];
+				}
+			};
+			shuffleArray(dueItems); // Shuffle only the due items
 
-		if (!selectedItem) {
-			new Notice(
-				"Nothing to review right now! All items are up-to-date.",
-			);
+			const selectedItem = dueItems[0];
+			// console.log(`[FSRS Debug] Selected item for quiz (from DUE items): ${selectedItem.file.basename} - ${selectedItem.identifier} (due: ${selectedItem.card.due})`);
+			new QuizModal(this.app, this, selectedItem).open();
+		} else {
+			// No items are strictly due
+			new Notice("Nothing is strictly due for review right now!");
+			// console.log("[FSRS Debug] No strictly due items. Quiz session will not start.");
+			// Optionally, you could inform about newItems.length if you want to allow "review ahead" later.
+			// console.log(`[FSRS Debug] Items not currently due (new or future): ${newItems.length}`);
 			return;
 		}
-
-		new QuizModal(
-			this.app,
-			this,
-			selectedItem.file,
-			selectedItem.card,
-		).open();
+		// --- END MODIFIED SELECTION LOGIC ---
 	}
-};
+}
