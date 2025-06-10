@@ -127,3 +127,25 @@
 .fsrs-cloze-capsule:hover {
   border-color: #aaa;
 }
+
+.fsrs-ribbon-icon {
+    position: relative;
+}
+
+.ribbon-stats-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: #c00;
+    color: #ddd;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 1px;
+    border-radius: 50%;
+    min-width: 16px;
+    min-height: 16px;
+    text-align: center;
+    line-height: 14px;
+    box-sizing: border-box;
+    z-index: 1;
+}
