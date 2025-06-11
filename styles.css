@@ -149,3 +149,26 @@
     box-sizing: border-box;
     z-index: 1;
 }
+
+@media (max-width: 768px) {
+    .modal.fsrs-quiz-modal {
+        max-width: 95vw;
+        max-height: 90vh;
+        width: auto;
+        height: auto;
+    }
+
+    .modal.fsrs-quiz-modal .quiz-modal-content {
+        overflow-y: auto;
+    }
+
+    .quiz-rating-container {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .quiz-rating-button {
+        margin: 5px;
+        padding: 10px 16px; 
+    }
+}

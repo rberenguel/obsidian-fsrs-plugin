@@ -163,12 +163,13 @@ export default class FsrsPlugin extends Plugin {
 	settings: FsrsPluginSettings;
 	public fsrsInstance: FSRS;
 	ribbonIconEl: HTMLElement;
+	statusBarItemEl: HTMLElement;
 	intervalId: number;
 
 	async onload() {
 		await this.loadSettings();
 		this.fsrsInstance = fsrs({});
-
+		this.statusBarItemEl = this.addStatusBarItem();
 		this.ribbonIconEl = this.addRibbonIcon("brain", "Start Quiz Review", () => {
 			this.startQuizSession();
 		});
@@ -263,18 +264,14 @@ export default class FsrsPlugin extends Plugin {
 		);
 		this.registerEditorExtension(buildClozeViewPlugin(this));
 
-		this.updateRibbon();
+		this.updateUIDisplays();
 		this.app.workspace.onLayoutReady(() => {
-			this.updateRibbon();
-			this.intervalId = window.setInterval(() => this.updateRibbon(), 5 * 60 * 1000);
-			this.registerEvent(this.app.metadataCache.on('changed', () => this.updateRibbon()));
-			this.registerEvent(this.app.vault.on('delete', () => this.updateRibbon()));
-			this.registerEvent(this.app.vault.on('rename', () => this.updateRibbon()));
+			this.updateUIDisplays();
+			this.intervalId = window.setInterval(() => this.updateUIDisplays(), 5 * 60 * 1000);
+			this.registerEvent(this.app.metadataCache.on('changed', () => this.updateUIDisplays()));
+			this.registerEvent(this.app.vault.on('delete', () => this.updateUIDisplays()));
+			this.registerEvent(this.app.vault.on('rename', () => this.updateUIDisplays()));
 		});
-		this.intervalId = window.setInterval(() => this.updateRibbon(), 5 * 60 * 1000);
-		this.registerEvent(this.app.metadataCache.on('changed', () => this.updateRibbon()));
-		this.registerEvent(this.app.vault.on('delete', () => this.updateRibbon()));
-		this.registerEvent(this.app.vault.on('rename', () => this.updateRibbon()));
 	}
 
 	onunload() {
@@ -283,27 +280,30 @@ export default class FsrsPlugin extends Plugin {
 		}
 	}
 
-	async updateRibbon(dueCount?: number) {
+async updateUIDisplays(dueCount?: number) {
 		if (dueCount === undefined) {
 			if (document.querySelector(".quiz-modal-content")) return;
 			try {
 				dueCount = (await this.getDueReviewItems()).length;
 			} catch (error) {
-				console.error("FSRS ribbon update error:", error);
+				console.error("FSRS UI update error:", error);
 				return;
 			}
 		}
 
+		// 1. Update Ribbon Icon Badge
 		const existingBadge = this.ribbonIconEl.querySelector('.ribbon-stats-badge');
 		if (existingBadge) existingBadge.remove();
-		
 		const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? 's' : ''} due`;
 		this.ribbonIconEl.setAttribute("aria-label", tooltip);
-
 		if (dueCount > 0) {
 			const badge = this.ribbonIconEl.createDiv({ cls: 'ribbon-stats-badge' });
 			badge.setText(String(dueCount));
 		}
+
+		// 2. Update Status Bar
+		this.statusBarItemEl.setText(`FSRS: ${dueCount} due`);
+		this.statusBarItemEl.setAttribute("aria-label", `${dueCount} cards due for review`);
 	}
 	
 	async getDueReviewItems(): Promise<QuizItem[]> {
@@ -356,7 +356,7 @@ export default class FsrsPlugin extends Plugin {
 
 	async startQuizSession() {
 		const dueItems = await this.getDueReviewItems();
-		this.updateRibbon(dueItems.length);
+		this.updateUIDisplays(dueItems.length);
 
 		if (dueItems.length === 0) {
 			new Notice(`No notes with frontmatter key "${this.settings.quizFrontmatterKey}: true" are due.`);
