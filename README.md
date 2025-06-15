@@ -2,7 +2,7 @@
 
 A hack with the JS FSRS library, the sample Obsidian plugin and Gemini.
 
-This is based on previous places where I have used FSRS ([Weave](https://github.com/rberenguel/weave), 
+This is based on previous places where I have used FSRS ([Weave](https://github.com/rberenguel/weave),
 [Garbuix](https://github.com/rberenguel/garbuix)), I just told Gemini what I wanted, gave it the
 [sample Obsidian plugin](https://github.com/obsidianmd/obsidian-sample-plugin) and those two codebases
 and let it run with it. I played the role product owner / QA. After that, some code cleanup.
@@ -11,19 +11,27 @@ and let it run with it. I played the role product owner / QA. After that, some c
 
 I wanted a no-dependency (or at least, easy to analyze as a human) spaced repetition tool I could use for _reasons_.
 
+## Screenshots
+
+![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/modal-question-and-editor.png)
+
+![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/modal-answer.png)
+
+![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/question-and-editor.png)
+
 ## TODOs
 
-- [ ] There seems to be a random bug in clozes, where they are badly rendered when asking. It does not always happen though.
+-   [ ] There seems to be a random bug in clozes, where they are badly rendered when asking. It does not always happen though.
 
 ## Usage
 
 A question is a note with:
 
-- `quiz: true` in the preamble. The plugin adds an action (recommended shortcut `option q`, which is pretty
-  useless on Mac) to set this quickly
-- A bunch of text (the question)
-- A horizontal row (`---`)
-- A bunch of text (the answer)
+-   `quiz: true` in the preamble. The plugin adds an action (recommended shortcut `option q`, which is pretty
+    useless on Mac) to set this quickly
+-   A bunch of text (the question)
+-   A horizontal row (`---`)
+-   A bunch of text (the answer)
 
 If all of these things happen, you can be quizzed about it by pressing the "brain" button in the command ribbon
 or invoking from the command palette. FSRS scheduling information will be added to a code block at the end of the
@@ -34,7 +42,7 @@ in the note and you are only asked for things with the right preamble.
 
 I have also only barely styled it enough to be usable.
 
-You can also have cloze questions with 
+You can also have cloze questions with
 
 ```
 Some text {{q1:the placeholder}} some more text {{q2:more placeholders}}.
@@ -46,20 +54,20 @@ Each placeholder will create a new question. Only one placeholder per id for now
 
 You get due information in:
 
-- The ribbon on desktop, due today in a red badge
-- A side calendar view (command palette -> `Simple FSRS: Open FSRS Calendar`)
-- The word-count/extra info lower thingy that usually counts words or paragraphs. 
+-   The ribbon on desktop, due today in a red badge
+-   A side calendar view (command palette -> `Simple FSRS: Open FSRS Calendar`)
+-   The word-count/extra info lower thingy that usually counts words or paragraphs.
 
 ## Future work / TODO
 
-- [x] Some sort of calendar view of what will be due soon (and then, the option to review early)
-- [ ] Deeper integration with other Obsidian features (no idea yet, but I'll come up with something neat)
+-   [x] Some sort of calendar view of what will be due soon (and then, the option to review early)
+-   [ ] Deeper integration with other Obsidian features (no idea yet, but I'll come up with something neat)
 
 ## Installing
 
 ### From a release
 
-Copy over `main.js`, `styles.css`, `manifest.json` from the release you want to your vault 
+Copy over `main.js`, `styles.css`, `manifest.json` from the release you want to your vault
 `VaultFolder/.obsidian/plugins/obsidian-fsrs-plugin/`.
 
 Note that the source code _does not_ include `main.js`, make sure you copy that if you unzip
@@ -82,9 +90,9 @@ This will create the built `main.js`.
 
 ## Attribution
 
-- [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) I used the JS build directly. I've never enjoyed
-  figuring out Typescript.
-- Gemini did most of the heavy lifting, although it had plenty of sample code to work with.
+-   [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) I used the JS build directly. I've never enjoyed
+    figuring out Typescript.
+-   Gemini did most of the heavy lifting, although it had plenty of sample code to work with.
 
 ---
 
