@@ -1,6 +1,6 @@
 {
-	"name": "Simple FSRS for Obsidian",
-	"version": "0.0.1",
+	"name": "Simple FSRS",
+	"version": "0.2.0",
 	"description": "Simple spaced repetition with FSRS for Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -19,6 +19,7 @@
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.17.3",
 		"obsidian": "latest",
+		"obsidian-calendar-ui": "0.3.0",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
 	}

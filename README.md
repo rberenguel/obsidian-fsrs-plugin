@@ -42,9 +42,17 @@ Some text {{q1:the placeholder}} some more text {{q2:more placeholders}}.
 
 Each placeholder will create a new question. Only one placeholder per id for now (no simultaneous replacement yet).
 
+---
+
+You get due information in:
+
+- The ribbon on desktop, due today in a red badge
+- A side calendar view (command palette -> `Simple FSRS: Open FSRS Calendar`)
+- The word-count/extra info lower thingy that usually counts words or paragraphs. 
+
 ## Future work / TODO
 
-- [ ] Some sort of calendar view of what will be due soon (and then, the option to review early)
+- [x] Some sort of calendar view of what will be due soon (and then, the option to review early)
 - [ ] Deeper integration with other Obsidian features (no idea yet, but I'll come up with something neat)
 
 ## Installing

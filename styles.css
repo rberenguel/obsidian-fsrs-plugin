@@ -150,6 +150,32 @@
     z-index: 1;
 }
 
+/* Calendar view stuff */
+
+.fsrs-calendar-badge {
+    font-size: 0.4em;
+    font-weight: bold;
+    color: var(--text-muted);
+    background-color: var(--background-modifier-border);
+    padding: 2px 6px;
+    border-radius: 5px;
+    margin-left: 3px;
+    vertical-align: middle;
+    text-transform: uppercase;
+}
+
+.dot-red {
+    fill: #c00 !important;
+}
+
+.dot-orange {
+    fill: #c60 !important;
+}
+
+.dot-cyan {
+    fill: #6cc !important;
+}
+
 @media (max-width: 768px) {
     .modal.fsrs-quiz-modal {
         max-width: 95vw;

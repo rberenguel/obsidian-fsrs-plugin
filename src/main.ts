@@ -7,12 +7,15 @@ import {
 	MarkdownPostProcessorContext,
 	MarkdownView,
 	Editor,
+	WorkspaceLeaf
 } from "obsidian";
 import { fsrs, createEmptyCard, FSRS } from "./fsrs";
 
 import { QuizModal } from "./QuizModal";
 import { FsrsSettingTab } from "./FsrsSettingsTab";
 import { FsrsPluginSettings, DEFAULT_SETTINGS } from "./settings";
+import { CalendarView, FSRS_CALENDAR_VIEW_TYPE } from "./CalendarView";
+
 import {
 	ViewPlugin,
 	ViewUpdate,
@@ -184,6 +187,14 @@ export default class FsrsPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "open-fsrs-calendar-view",
+			name: "Open FSRS Calendar",
+			callback: () => {
+				this.activateView();
+			},
+		});
+
+		this.addCommand({
 			id: "set-note-as-quiz-frontmatter",
 			name: "Mark note as quiz (uses frontmatter)",
 			hotkeys: [{ modifiers: ["Alt"], key: "Q" }],
@@ -200,6 +211,11 @@ export default class FsrsPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new FsrsSettingTab(this.app, this));
+
+		this.registerView(
+			FSRS_CALENDAR_VIEW_TYPE,
+			(leaf) => new CalendarView(leaf, this)
+		);
 
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
@@ -272,6 +288,21 @@ export default class FsrsPlugin extends Plugin {
 			this.registerEvent(this.app.vault.on('delete', () => this.updateUIDisplays()));
 			this.registerEvent(this.app.vault.on('rename', () => this.updateUIDisplays()));
 		});
+	}
+
+async activateView() {
+const { workspace } = this.app;
+		let leaf: WorkspaceLeaf; // No longer nullable
+		const leaves = workspace.getLeavesOfType(FSRS_CALENDAR_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			leaf = leaves[0];
+		} else {
+			// Get a leaf in the right sidebar, or create a new one if sidebar isn't available
+			leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
+			await leaf.setViewState({ type: FSRS_CALENDAR_VIEW_TYPE, active: true });
+		}
+		workspace.revealLeaf(leaf);
 	}
 
 	onunload() {

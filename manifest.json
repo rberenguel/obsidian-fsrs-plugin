@@ -1,7 +1,7 @@
 {
 	"id": "simple-fsrs-obsidian",
-	"name": "Simple FSRS for Obsidian",
-	"version": "0.1.2",
+	"name": "Simple FSRS",
+	"version": "0.2.0",
 	"minAppVersion": "0.15.0",
 	"description": "Simple spaced repetition with FSRS for Obsidian",
 	"author": "Ruben Berenguel",
