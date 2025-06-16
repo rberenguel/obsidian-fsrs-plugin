@@ -7,7 +7,7 @@ import {
 	MarkdownPostProcessorContext,
 	MarkdownView,
 	Editor,
-	WorkspaceLeaf
+	WorkspaceLeaf,
 } from "obsidian";
 import { fsrs, createEmptyCard, FSRS } from "./fsrs";
 
@@ -173,9 +173,13 @@ export default class FsrsPlugin extends Plugin {
 		await this.loadSettings();
 		this.fsrsInstance = fsrs({});
 		this.statusBarItemEl = this.addStatusBarItem();
-		this.ribbonIconEl = this.addRibbonIcon("brain", "Start Quiz Review", () => {
-			this.startQuizSession();
-		});
+		this.ribbonIconEl = this.addRibbonIcon(
+			"brain",
+			"Start Quiz Review",
+			() => {
+				this.startQuizSession();
+			},
+		);
 		this.ribbonIconEl.addClass("fsrs-ribbon-icon");
 
 		this.addCommand({
@@ -214,7 +218,7 @@ export default class FsrsPlugin extends Plugin {
 
 		this.registerView(
 			FSRS_CALENDAR_VIEW_TYPE,
-			(leaf) => new CalendarView(leaf, this)
+			(leaf) => new CalendarView(leaf, this),
 		);
 
 		this.registerMarkdownPostProcessor(
@@ -222,10 +226,16 @@ export default class FsrsPlugin extends Plugin {
 				const quizKey =
 					this.settings.quizFrontmatterKey ||
 					DEFAULT_SETTINGS.quizFrontmatterKey;
-				if (!context.frontmatter || context.frontmatter[quizKey] !== true) {
+				if (
+					!context.frontmatter ||
+					context.frontmatter[quizKey] !== true
+				) {
 					return;
 				}
-				const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+				const walker = document.createTreeWalker(
+					element,
+					NodeFilter.SHOW_TEXT,
+				);
 				let node;
 				const nodesToReplace: {
 					originalNode: Node;
@@ -234,7 +244,8 @@ export default class FsrsPlugin extends Plugin {
 				while ((node = walker.nextNode())) {
 					if (node.nodeValue === null) continue;
 					const textContent = node.nodeValue;
-					const clozeRegex = /\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
+					const clozeRegex =
+						/\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
 					let lastIndex = 0;
 					const fragment = document.createDocumentFragment();
 					let matchFound = false;
@@ -245,15 +256,22 @@ export default class FsrsPlugin extends Plugin {
 						if (match.index > lastIndex) {
 							fragment.appendChild(
 								document.createTextNode(
-									textContent.substring(lastIndex, match.index),
+									textContent.substring(
+										lastIndex,
+										match.index,
+									),
 								),
 							);
 						}
 						const capsule = document.createElement("span");
 						capsule.addClass("fsrs-cloze-capsule");
-						const iconPart = capsule.createSpan({ cls: "fsrs-cloze-icon-part" });
+						const iconPart = capsule.createSpan({
+							cls: "fsrs-cloze-icon-part",
+						});
 						iconPart.setText("❓");
-						const textPart = capsule.createSpan({ cls: "fsrs-cloze-text-part" });
+						const textPart = capsule.createSpan({
+							cls: "fsrs-cloze-text-part",
+						});
 						textPart.setText(contentToRender);
 						fragment.appendChild(capsule);
 						lastIndex = clozeRegex.lastIndex;
@@ -261,7 +279,9 @@ export default class FsrsPlugin extends Plugin {
 					if (matchFound) {
 						if (lastIndex < textContent.length) {
 							fragment.appendChild(
-								document.createTextNode(textContent.substring(lastIndex)),
+								document.createTextNode(
+									textContent.substring(lastIndex),
+								),
 							);
 						}
 						nodesToReplace.push({
@@ -283,25 +303,44 @@ export default class FsrsPlugin extends Plugin {
 		this.updateUIDisplays();
 		this.app.workspace.onLayoutReady(() => {
 			this.updateUIDisplays();
-			this.intervalId = window.setInterval(() => this.updateUIDisplays(), 5 * 60 * 1000);
-			this.registerEvent(this.app.metadataCache.on('changed', () => this.updateUIDisplays()));
-			this.registerEvent(this.app.vault.on('delete', () => this.updateUIDisplays()));
-			this.registerEvent(this.app.vault.on('rename', () => this.updateUIDisplays()));
+			this.intervalId = window.setInterval(
+				() => this.updateUIDisplays(),
+				5 * 60 * 1000,
+			);
+			this.registerEvent(
+				this.app.metadataCache.on("changed", () =>
+					this.updateUIDisplays(),
+				),
+			);
+			this.registerEvent(
+				this.app.vault.on("delete", () => this.updateUIDisplays()),
+			);
+			this.registerEvent(
+				this.app.vault.on("rename", () => this.updateUIDisplays()),
+			);
 		});
 	}
 
-async activateView() {
-const { workspace } = this.app;
-		let leaf: WorkspaceLeaf; // No longer nullable
-		const leaves = workspace.getLeavesOfType(FSRS_CALENDAR_VIEW_TYPE);
+	async activateView() {
+		const { workspace } = this.app;
+		// Remove any existing calendar views to prevent duplicates
+		workspace.detachLeavesOfType(FSRS_CALENDAR_VIEW_TYPE);
 
-		if (leaves.length > 0) {
-			leaf = leaves[0];
-		} else {
-			// Get a leaf in the right sidebar, or create a new one if sidebar isn't available
-			leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
-			await leaf.setViewState({ type: FSRS_CALENDAR_VIEW_TYPE, active: true });
+		// Create a new leaf in the right sidebar. The `true` argument will
+		// create a new leaf if one doesn't exist.
+		const leaf = workspace.getRightLeaf(true);
+		if (!leaf) {
+			new Notice("Could not open calendar in the side pane.");
+			return;
 		}
+
+		// Set the view state for our new leaf
+		await leaf.setViewState({
+			type: FSRS_CALENDAR_VIEW_TYPE,
+			active: true,
+		});
+
+		// Reveal the leaf to make sure it's visible
 		workspace.revealLeaf(leaf);
 	}
 
@@ -311,7 +350,7 @@ const { workspace } = this.app;
 		}
 	}
 
-async updateUIDisplays(dueCount?: number) {
+	async updateUIDisplays(dueCount?: number) {
 		if (dueCount === undefined) {
 			if (document.querySelector(".quiz-modal-content")) return;
 			try {
@@ -323,20 +362,37 @@ async updateUIDisplays(dueCount?: number) {
 		}
 
 		// 1. Update Ribbon Icon Badge
-		const existingBadge = this.ribbonIconEl.querySelector('.ribbon-stats-badge');
+		const existingBadge = this.ribbonIconEl.querySelector(
+			".ribbon-stats-badge",
+		);
 		if (existingBadge) existingBadge.remove();
-		const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? 's' : ''} due`;
+		const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? "s" : ""} due`;
 		this.ribbonIconEl.setAttribute("aria-label", tooltip);
 		if (dueCount > 0) {
-			const badge = this.ribbonIconEl.createDiv({ cls: 'ribbon-stats-badge' });
+			const badge = this.ribbonIconEl.createDiv({
+				cls: "ribbon-stats-badge",
+			});
 			badge.setText(String(dueCount));
 		}
 
 		// 2. Update Status Bar
 		this.statusBarItemEl.setText(`FSRS: ${dueCount} due`);
-		this.statusBarItemEl.setAttribute("aria-label", `${dueCount} cards due for review`);
+		this.statusBarItemEl.setAttribute(
+			"aria-label",
+			`${dueCount} cards due for review`,
+		);
+
+		// 3. Update any open calendar views
+		const leaves = this.app.workspace.getLeavesOfType(
+			FSRS_CALENDAR_VIEW_TYPE,
+		);
+		for (const leaf of leaves) {
+			if (leaf.view instanceof CalendarView) {
+				await leaf.view.redraw();
+			}
+		}
 	}
-	
+
 	async getDueReviewItems(): Promise<QuizItem[]> {
 		const quizNotes = await this.getQuizNotes();
 		const now = new Date();
@@ -347,38 +403,103 @@ async updateUIDisplays(dueCount?: number) {
 			let bodyContentOnly = rawFileContent;
 			const fileCache = this.app.metadataCache.getFileCache(noteFile);
 			const yamlEndOffset = fileCache?.frontmatterPosition?.end?.offset;
-			if (yamlEndOffset && yamlEndOffset > 0 && yamlEndOffset <= rawFileContent.length) {
+			if (
+				yamlEndOffset &&
+				yamlEndOffset > 0 &&
+				yamlEndOffset <= rawFileContent.length
+			) {
 				bodyContentOnly = rawFileContent.substring(yamlEndOffset);
 			}
 			bodyContentOnly = bodyContentOnly.trimStart();
 
-			const { question, answer, fsrsData, existingContent, identifiedClozes } = this.parseNoteContent(bodyContentOnly);
+			const {
+				question,
+				answer,
+				fsrsData,
+				existingContent,
+				identifiedClozes,
+			} = this.parseNoteContent(bodyContentOnly);
 
 			if (identifiedClozes.length > 0) {
 				let fsrsDataMapForClozes: Record<string, Card> = {};
-				if (fsrsData && typeof fsrsData === "object" && !Array.isArray(fsrsData)) {
+				if (
+					fsrsData &&
+					typeof fsrsData === "object" &&
+					!Array.isArray(fsrsData)
+				) {
 					const keys = Object.keys(fsrsData);
-					const looksLikeSingleCard = fsrsData.hasOwnProperty("due") && fsrsData.hasOwnProperty("stability");
-					if (looksLikeSingleCard && keys.length < 8 && !Object.values(fsrsData).some((v: any) => typeof v === "object" && v && v.hasOwnProperty("due"))) {} 
-					else if (!looksLikeSingleCard || keys.length > 0) {
+					const looksLikeSingleCard =
+						fsrsData.hasOwnProperty("due") &&
+						fsrsData.hasOwnProperty("stability");
+					if (
+						looksLikeSingleCard &&
+						keys.length < 8 &&
+						!Object.values(fsrsData).some(
+							(v: any) =>
+								typeof v === "object" &&
+								v &&
+								v.hasOwnProperty("due"),
+						)
+					) {
+					} else if (!looksLikeSingleCard || keys.length > 0) {
 						fsrsDataMapForClozes = fsrsData as Record<string, Card>;
 					}
 				}
 
 				for (const cloze of identifiedClozes) {
-					const card: Card = fsrsDataMapForClozes[cloze.id] || (createEmptyCard(now) as Card);
-					const dueDate = typeof card.due === "string" ? new Date(card.due) : card.due;
-					if (dueDate instanceof Date && !isNaN(dueDate.getTime()) && dueDate <= now) {
-						dueItems.push({ file: noteFile, card, identifier: cloze.id, isCloze: true, noteBodyForCloze: existingContent, clozeDetails: cloze, fsrsDataStoreForNote: fsrsDataMapForClozes, mainQuestion: question, mainAnswer: answer });
+					const card: Card =
+						fsrsDataMapForClozes[cloze.id] ||
+						(createEmptyCard(now) as Card);
+					const dueDate =
+						typeof card.due === "string"
+							? new Date(card.due)
+							: card.due;
+					if (
+						dueDate instanceof Date &&
+						!isNaN(dueDate.getTime()) &&
+						dueDate <= now
+					) {
+						dueItems.push({
+							file: noteFile,
+							card,
+							identifier: cloze.id,
+							isCloze: true,
+							noteBodyForCloze: existingContent,
+							clozeDetails: cloze,
+							fsrsDataStoreForNote: fsrsDataMapForClozes,
+							mainQuestion: question,
+							mainAnswer: answer,
+						});
 					}
 				}
 			} else {
 				if (!question && !answer) continue;
 
-				let cardForSimpleNote: Card = (fsrsData && typeof fsrsData === "object" && fsrsData.hasOwnProperty("due")) ? (fsrsData as Card) : (createEmptyCard(now) as Card);
-				const dueDate = typeof cardForSimpleNote.due === "string" ? new Date(cardForSimpleNote.due) : cardForSimpleNote.due;
-				if (dueDate instanceof Date && !isNaN(dueDate.getTime()) && dueDate <= now) {
-					dueItems.push({ file: noteFile, card: cardForSimpleNote, identifier: "_default", isCloze: false, mainQuestion: question, mainAnswer: answer, noteBodyForCloze: existingContent, fsrsDataStoreForNote: cardForSimpleNote });
+				let cardForSimpleNote: Card =
+					fsrsData &&
+					typeof fsrsData === "object" &&
+					fsrsData.hasOwnProperty("due")
+						? (fsrsData as Card)
+						: (createEmptyCard(now) as Card);
+				const dueDate =
+					typeof cardForSimpleNote.due === "string"
+						? new Date(cardForSimpleNote.due)
+						: cardForSimpleNote.due;
+				if (
+					dueDate instanceof Date &&
+					!isNaN(dueDate.getTime()) &&
+					dueDate <= now
+				) {
+					dueItems.push({
+						file: noteFile,
+						card: cardForSimpleNote,
+						identifier: "_default",
+						isCloze: false,
+						mainQuestion: question,
+						mainAnswer: answer,
+						noteBodyForCloze: existingContent,
+						fsrsDataStoreForNote: cardForSimpleNote,
+					});
 				}
 			}
 		}
@@ -390,7 +511,9 @@ async updateUIDisplays(dueCount?: number) {
 		this.updateUIDisplays(dueItems.length);
 
 		if (dueItems.length === 0) {
-			new Notice(`No notes with frontmatter key "${this.settings.quizFrontmatterKey}: true" are due.`);
+			new Notice(
+				`No notes with frontmatter key "${this.settings.quizFrontmatterKey}: true" are due.`,
+			);
 			return;
 		}
 
@@ -404,8 +527,7 @@ async updateUIDisplays(dueCount?: number) {
 
 		new QuizModal(this.app, this, dueItems[0]).open();
 	}
-	
-	// ... all other methods like setQuizFrontmatterForActiveNote, loadSettings, saveSettings, getQuizNotes, parseNoteContent, writeFsrsDataToNote
+
 	async setQuizFrontmatterForActiveNote(file: TFile) {
 		const quizKey = this.settings.quizFrontmatterKey || "quiz";
 		try {
@@ -418,7 +540,9 @@ async updateUIDisplays(dueCount?: number) {
 						new Notice(`Marked "${file.basename}" as a quiz.`);
 					}
 				} else {
-					new Notice(`Frontmatter in "${file.basename}" is malformed.`);
+					new Notice(
+						`Frontmatter in "${file.basename}" is malformed.`,
+					);
 				}
 			});
 		} catch (error) {
@@ -427,7 +551,11 @@ async updateUIDisplays(dueCount?: number) {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData(),
+		);
 	}
 
 	async saveSettings() {
@@ -440,7 +568,10 @@ async updateUIDisplays(dueCount?: number) {
 		const quizKey = this.settings.quizFrontmatterKey || "quiz";
 		for (const file of allFiles) {
 			const fileCache = this.app.metadataCache.getFileCache(file);
-			if (fileCache?.frontmatter && fileCache.frontmatter[quizKey] === true) {
+			if (
+				fileCache?.frontmatter &&
+				fileCache.frontmatter[quizKey] === true
+			) {
 				quizNotes.push(file);
 			}
 		}
@@ -452,16 +583,27 @@ async updateUIDisplays(dueCount?: number) {
 		let answer = "";
 		let fsrsData: any = null;
 		let contentForQaParsing = content;
-		const identifiedClozes: { id: string; content: string; rawPlaceholder: string }[] = [];
+		const identifiedClozes: {
+			id: string;
+			content: string;
+			rawPlaceholder: string;
+		}[] = [];
 		const clozeRegex = /\{\{([a-zA-Z0-9_-]+):((?:(?!\{\{|\}\}).)+)\}\}/g;
 		const parts = content.split(FSRS_DATA_SEPARATOR);
 		if (parts.length > 1) {
 			const lastSegment = parts[parts.length - 1].trim();
-			if (lastSegment.startsWith("```json") && lastSegment.endsWith("```")) {
+			if (
+				lastSegment.startsWith("```json") &&
+				lastSegment.endsWith("```")
+			) {
 				try {
-					const jsonString = lastSegment.substring(7, lastSegment.length - 3).trim();
+					const jsonString = lastSegment
+						.substring(7, lastSegment.length - 3)
+						.trim();
 					fsrsData = JSON.parse(jsonString);
-					contentForQaParsing = parts.slice(0, parts.length - 1).join(FSRS_DATA_SEPARATOR);
+					contentForQaParsing = parts
+						.slice(0, parts.length - 1)
+						.join(FSRS_DATA_SEPARATOR);
 				} catch (e) {
 					fsrsData = null;
 					contentForQaParsing = content;
@@ -475,7 +617,11 @@ async updateUIDisplays(dueCount?: number) {
 
 		let match;
 		while ((match = clozeRegex.exec(contentForQaParsing)) !== null) {
-			identifiedClozes.push({ id: match[1], content: match[2], rawPlaceholder: match[0] });
+			identifiedClozes.push({
+				id: match[1],
+				content: match[2],
+				rawPlaceholder: match[0],
+			});
 		}
 
 		const qaParts = contentForQaParsing.split(QA_SEPARATOR);
@@ -488,19 +634,33 @@ async updateUIDisplays(dueCount?: number) {
 			fsrsData = {};
 		}
 
-		return { question, answer, fsrsData, existingContent: contentForQaParsing.trim(), identifiedClozes };
+		return {
+			question,
+			answer,
+			fsrsData,
+			existingContent: contentForQaParsing.trim(),
+			identifiedClozes,
+		};
 	}
 
-	async writeFsrsDataToNote(noteFile: TFile, originalFrontmatter: string, originalBodyWithoutFsrs: string, dataToWrite: Record<string, any> | Card | null) {
+	async writeFsrsDataToNote(
+		noteFile: TFile,
+		originalFrontmatter: string,
+		originalBodyWithoutFsrs: string,
+		dataToWrite: Record<string, any> | Card | null,
+	) {
 		if (dataToWrite === null) return;
-		
+
 		const fsrsJsonString = JSON.stringify(dataToWrite, null, 2);
 		const newFsrsBlock = `\n\n---\n\`\`\`json\n${fsrsJsonString}\n\`\`\``;
-		const newBodyContentWithFsrs = originalBodyWithoutFsrs.trim() + newFsrsBlock;
+		const newBodyContentWithFsrs =
+			originalBodyWithoutFsrs.trim() + newFsrsBlock;
 		let finalNoteContent: string;
 
 		if (originalFrontmatter.length > 0) {
-			finalNoteContent = originalFrontmatter.endsWith("\n") ? originalFrontmatter + newBodyContentWithFsrs : originalFrontmatter + "\n" + newBodyContentWithFsrs;
+			finalNoteContent = originalFrontmatter.endsWith("\n")
+				? originalFrontmatter + newBodyContentWithFsrs
+				: originalFrontmatter + "\n" + newBodyContentWithFsrs;
 		} else {
 			finalNoteContent = newBodyContentWithFsrs;
 		}

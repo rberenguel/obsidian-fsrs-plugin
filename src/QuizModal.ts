@@ -197,7 +197,7 @@ export class QuizModal extends Modal {
 		const questionDiv = questionContainer.createEl("div", {
 			cls: "quiz-question",
 		});
-
+		questionDiv.addClass("markdown-reading-view");
 		// Step 2: Render the markdown (non-active clozes are still raw text like {{q2:banana}})
 		MarkdownRenderer.render(
 			this.app,
@@ -297,6 +297,7 @@ export class QuizModal extends Modal {
 			const answerDiv = answerContainer.createEl("div", {
 				cls: "quiz-answer",
 			});
+			answerDiv.addClass("markdown-reading-view");
 			MarkdownRenderer.render(
 				this.app,
 				this.answer,
