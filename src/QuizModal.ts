@@ -20,7 +20,6 @@ export class QuizModal extends Modal {
 	boundHandleKeyPress: (event: KeyboardEvent) => void;
 	boundShowAnswerOnClick: () => void;
 
-
 	constructor(app: App, plugin: FsrsPlugin, item: QuizItem) {
 		super(app);
 		this.plugin = plugin;
@@ -113,8 +112,10 @@ export class QuizModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("quiz-modal-content");
-const timerContainer = contentEl.createDiv({ cls: "quiz-timer-container" });
-timerContainer.createDiv({ cls: "quiz-timer-bar" });
+		const timerContainer = contentEl.createDiv({
+			cls: "quiz-timer-container",
+		});
+		timerContainer.createDiv({ cls: "quiz-timer-bar" });
 		contentEl
 			.createEl("h2", {
 				text: `Quiz: ${this.item.file.basename}`,
@@ -160,7 +161,6 @@ timerContainer.createDiv({ cls: "quiz-timer-bar" });
 		this.modalEl.addEventListener("keydown", this.boundHandleKeyPress);
 		this.modalEl.tabIndex = -1;
 		this.modalEl.focus();
-		
 	}
 
 	handleKeyPress(event: KeyboardEvent) {

@@ -295,6 +295,7 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 					)}$`,
 				);
 
+
 				for (const { from, to } of view.visibleRanges) {
 					let pos = from;
 					while (pos <= to) {
@@ -311,17 +312,18 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 								selection.from < markerEnd &&
 								selection.to > markerStart;
 
-							
 							if (!selectionOverlaps) {
-								// Decoration 1: Style the question text before the marker
+								// Apply a container class to the whole line
 								builder.add(
 									line.from,
-									markerStart,
-									Decoration.mark({
-										class: "fsrs-question-paragraph",
+									line.from,
+									Decoration.line({
+										attributes: {
+											class: "fsrs-question-container",
+										},
 									}),
 								);
-								// Decoration 2: Replace the marker itself with the widget
+								// Then, replace only the marker with the widget
 								const style = questionMatch[1] || undefined;
 								builder.add(
 									markerStart,
@@ -336,7 +338,6 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 								selection.from <= line.to &&
 								selection.to >= line.from;
 							if (!selectionOverlaps) {
-								// Replace the end marker line with its widget
 								builder.add(
 									line.from,
 									line.to,
