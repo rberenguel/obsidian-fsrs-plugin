@@ -148,6 +148,36 @@ function buildClozeViewPlugin(plugin: FsrsPlugin) {
 	);
 }
 
+class QuestionLineWidget extends WidgetType {
+	constructor(
+		readonly questionText: string,
+		readonly style: string | undefined,
+	) {
+		super();
+	}
+
+	toDOM(view: EditorView): HTMLElement {
+		// The main container for the line, with the desired paragraph class
+		const lineEl = document.createElement("div");
+		lineEl.className = "fsrs-question-paragraph";
+
+		// The actual question text
+		const textEl = lineEl.createSpan();
+		textEl.innerText = this.questionText;
+
+		// The capsule widget at the end
+		const capsuleWidget = new SrsCapsuleWidget(this.style);
+		const capsuleEl = capsuleWidget.toDOM(view);
+		lineEl.appendChild(capsuleEl);
+
+		return lineEl;
+	}
+
+	ignoreEvent() {
+		return true;
+	}
+}
+
 class SrsCapsuleWidget extends WidgetType {
 	constructor(readonly style: string | undefined) {
 		super();
@@ -239,63 +269,83 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
-
-				// Regex parts
-				const questionPart = `[ \\t]+\\?srs(?:\\(([^)]+)\\))?(?:\\s+\\^\\w+)?$`;
-				const endPart = `^${FSRS_CARD_END_MARKER.replace(
-					/[.*+?^${}()|[\]\\]/g,
-					"\\$&",
-				)}$`;
-
-				// Combined regex to find either a question or an end marker
-				const combinedRegex = new RegExp(
-					`(${questionPart})|(${endPart})`,
-					"gm",
-				);
+				const quizKey =
+					plugin.settings.quizFrontmatterKey ||
+					DEFAULT_SETTINGS.quizFrontmatterKey;
 
 				const currentFile =
-					plugin.app.workspace.getActiveViewOfType(
-						MarkdownView,
-					)?.file;
+					plugin.app.workspace.getActiveViewOfType(MarkdownView)
+						?.file;
 				if (!currentFile) return Decoration.none;
+
 				const fileCache =
 					plugin.app.metadataCache.getFileCache(currentFile);
-				if (
-					!fileCache?.frontmatter?.[
-						plugin.settings.quizFrontmatterKey
-					]
-				) {
+				if (!fileCache?.frontmatter?.[quizKey]) {
 					return Decoration.none;
 				}
 
 				const selection = view.state.selection.main;
+				const questionRegex =
+					/[ \t]+\?srs(?:\(([\w-]+)\))?(\s+\^[a-zA-Z0-9]+)?$/;
+				const endRegex = new RegExp(
+					`^${FSRS_CARD_END_MARKER.replace(
+						/[.*+?^${}()|[\]\\]/g,
+						"\\$&",
+					)}$`,
+				);
 
+ 
 				for (const { from, to } of view.visibleRanges) {
-					const text = view.state.doc.sliceString(from, to);
-					let match;
+					let pos = from;
+					while (pos <= to) {
+						const line = view.state.doc.lineAt(pos);
 
-					while ((match = combinedRegex.exec(text))) {
-						// Determine which part of the regex matched
-						const isEndMarker = !!match[2];
-						const style = isEndMarker
-							? "end"
-							: // Extract style from question marker's capture group
-								match[0].match(/\(([^)]+)\)/)?.[1] || undefined;
+						const questionMatch = line.text.match(questionRegex);
+						const endMatch = line.text.match(endRegex);
 
-						const start = from + match.index;
-						const end = start + match[0].length;
-						const selectionOverlaps =
-							selection.from < end && selection.to > start;
+						if (questionMatch && questionMatch.index) {
+							const markerStart = line.from + questionMatch.index;
+							const markerEnd = markerStart + questionMatch[0].length;
+							const selectionOverlaps =
+								selection.from < markerEnd &&
+								selection.to > markerStart;
 
-						if (!selectionOverlaps) {
-							builder.add(
-								start,
-								end,
-								Decoration.replace({
-									widget: new SrsCapsuleWidget(style),
-								}),
-							);
+							if (!selectionOverlaps) {
+								// Decoration 1: Style the question text before the marker
+								builder.add(
+									line.from,
+									markerStart,
+									Decoration.mark({
+										class: "fsrs-question-paragraph",
+									}),
+								);
+
+								// Decoration 2: Replace the marker itself with the widget
+								const style = questionMatch[1] || undefined;
+								builder.add(
+									markerStart,
+									markerEnd,
+									Decoration.replace({
+										widget: new SrsCapsuleWidget(style),
+									}),
+								);
+							}
+						} else if (endMatch) {
+							const selectionOverlaps =
+								selection.from <= line.to &&
+								selection.to >= line.from;
+							if (!selectionOverlaps) {
+								// Replace the end marker line with its widget
+								builder.add(
+									line.from,
+									line.to,
+									Decoration.replace({
+										widget: new SrsCapsuleWidget("end"),
+									}),
+								);
+							}
 						}
+						pos = line.to + 1;
 					}
 				}
 				return builder.finish();

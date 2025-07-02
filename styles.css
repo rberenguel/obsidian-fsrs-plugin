@@ -189,6 +189,27 @@ font-size: 50%;
     margin-left: -0.1em;
 }
 
+/* Paragraph styling */
+
+/*
+ * FSRS Question Styling - Subtle Background
+ */
+
+.fsrs-question-paragraph {
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.theme-light .fsrs-question-paragraph {
+  background-color: rgba(0, 0, 50, 0.1);
+}
+
+.theme-dark .fsrs-question-paragraph {
+  background-color: rgba(255, 200, 200, 0.1); 
+}
+
 @media (max-width: 768px) {
     .modal.fsrs-quiz-modal {
         max-width: 95vw;
