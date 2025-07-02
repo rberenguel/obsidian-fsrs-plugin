@@ -274,8 +274,9 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 					DEFAULT_SETTINGS.quizFrontmatterKey;
 
 				const currentFile =
-					plugin.app.workspace.getActiveViewOfType(MarkdownView)
-						?.file;
+					plugin.app.workspace.getActiveViewOfType(
+						MarkdownView,
+					)?.file;
 				if (!currentFile) return Decoration.none;
 
 				const fileCache =
@@ -294,7 +295,6 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 					)}$`,
 				);
 
- 
 				for (const { from, to } of view.visibleRanges) {
 					let pos = from;
 					while (pos <= to) {
@@ -305,11 +305,13 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 
 						if (questionMatch && questionMatch.index) {
 							const markerStart = line.from + questionMatch.index;
-							const markerEnd = markerStart + questionMatch[0].length;
+							const markerEnd =
+								markerStart + questionMatch[0].length;
 							const selectionOverlaps =
 								selection.from < markerEnd &&
 								selection.to > markerStart;
 
+							
 							if (!selectionOverlaps) {
 								// Decoration 1: Style the question text before the marker
 								builder.add(
@@ -319,7 +321,6 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 										class: "fsrs-question-paragraph",
 									}),
 								);
-
 								// Decoration 2: Replace the marker itself with the widget
 								const style = questionMatch[1] || undefined;
 								builder.add(
