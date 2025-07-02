@@ -1,6 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import fs from "fs/promises";
+import path from "path";
 
 const banner =
 `/*
@@ -9,7 +11,29 @@ if you want to view the source, please visit the github repository of this plugi
 */
 `;
 
+const vaultPath = "/Users/ruben/Library/Mobile Documents/iCloud~md~obsidian/Documents/git-notes-in-icloud/.obsidian/plugins/simple-fsrs";
 const prod = (process.argv[2] === "production");
+
+const copyPlugin = {
+  name: "copy-to-vault",
+  setup: (build) => {
+    build.onEnd(async (result) => {
+      if (result.errors.length > 0) return;
+
+      console.log("Build succeeded, copying files...");
+      await fs.cp("main.js", path.join(vaultPath, "main.js"));
+      await fs.cp("manifest.json", path.join(vaultPath, "manifest.json"));
+      // Use a try-catch for optional files like styles.css
+      try {
+        await fs.cp("styles.css", path.join(vaultPath, "styles.css"));
+      } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+        // Ignore error if styles.css doesn't exist
+      }
+      console.log("Files copied to vault.");
+    });
+  },
+};
 
 const context = await esbuild.context({
 	banner: {
@@ -39,6 +63,7 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: prod,
+	plugins: [copyPlugin]
 });
 
 if (prod) {

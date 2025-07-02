@@ -98,15 +98,21 @@
   overflow: hidden;      /* Ensures child backgrounds don't bleed past rounded corners */
   font-style: normal;    /* Override previous italic if any */
   line-height: 1.3;      /* Adjust for better vertical centering with padding */
+  margin-left: 0.5em;
+  margin-right: 0.5em;
 }
 
 /* Icon part of the capsule */
 .fsrs-cloze-icon-part {
   background-color: #666; /* Example: Theme accent for icon background */
   color: black; /* Text color that contrasts with icon background */
-  padding: 0.2em 0.5em; /* Adjust padding for icon */
+  padding: 0.4em 0.5em 0.2em 0.5em;
   /* border-radius: 1em 0 0 1em; /* Round left side - handled by parent usually */
-  margin-right: -1px; /* Hack to prevent double borders if parent also has border */
+font-size: 50%;
+}
+
+.fsrs-cloze-text-part.has-icon {
+    padding: 0.4em 0.5em 0.2em 0.5em;
 }
 
 /* Text part of the capsule */
@@ -114,6 +120,7 @@
   background-color: #999; /* Example: Secondary background for text */
   color: black;
   padding: 0.2em 0.6em; /* Adjust padding for text */
+  font-size: 50%;
   /* border-radius: 0 1em 1em 0; /* Round right side - handled by parent usually */
 }
 
@@ -174,6 +181,12 @@
 
 .dot-cyan {
     fill: #6cc !important;
+}
+
+/* Custom capsule styling */
+
+.fsrs-srs-style-end {
+    margin-left: -0.1em;
 }
 
 @media (max-width: 768px) {
