@@ -93,7 +93,6 @@
 .fsrs-cloze-capsule {
 	display: inline-flex; /* Allows children to sit side-by-side */
 	align-items: center; /* Vertically align icon and text if their heights differ */
-	border: 1px solid #333; /* Optional: border around the whole capsule */
 	border-radius: 0.5em; /* Make it pill-shaped (adjust as needed) */
 	overflow: hidden; /* Ensures child backgrounds don't bleed past rounded corners */
 	font-style: normal; /* Override previous italic if any */
@@ -132,7 +131,7 @@
 
 /* Optional: Hover effect for the whole capsule */
 .fsrs-cloze-capsule:hover {
-	border-color: #aaa;
+    filter: invert(0.8) sepia(0.5) hue-rotate(-30deg);
 }
 
 .fsrs-ribbon-icon {
@@ -195,8 +194,23 @@
  * FSRS Question Styling 
  */
 
-.fsrs-question-paragraph {
-	filter: sepia(1) saturate(6) hue-rotate(220deg) brightness(0.7);
+.fsrs-question-container  {
+  padding: 4px 8px !important;
+  border-radius: 2px;
+}
+
+.fsrs-question-container.HyperMD-header.cm-line  {
+  margin-top: 0.2em !important;
+  margin-bottom: 0.2em !important;
+}
+
+.theme-light .fsrs-question-container  {
+  background-color: rgba(0, 0, 50, 0.15); 
+}
+
+
+.theme-dark .fsrs-question-container  {
+  background-color: rgba(255, 200, 200, 0.15);
 }
 
 @keyframes fill-timer-bar {
