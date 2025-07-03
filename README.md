@@ -7,6 +7,9 @@ This is based on previous places where I have used FSRS ([Weave](https://github.
 [sample Obsidian plugin](https://github.com/obsidianmd/obsidian-sample-plugin) and those two codebases
 and let it run with it. I played the role product owner / QA. After that, some code cleanup and a big breaking change.
 
+> [!NOTE]
+> The screenshots are a couple of patch versions old
+
 ![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/modal-question-and-editor.png)
 
 ![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/modal-answer.png)
