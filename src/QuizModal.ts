@@ -11,7 +11,9 @@ export enum Rating {
 
 export class QuizModal extends Modal {
 	plugin: FsrsPlugin;
-	item: QuizItem;
+	queue: QuizItem[];
+	currentItem: QuizItem;
+	totalInSession: number;
 
 	question: string;
 	answer: string;
@@ -20,12 +22,22 @@ export class QuizModal extends Modal {
 	boundHandleKeyPress: (event: KeyboardEvent) => void;
 	boundShowAnswerOnClick: () => void;
 
-	constructor(app: App, plugin: FsrsPlugin, item: QuizItem) {
+	constructor(
+		app: App,
+		plugin: FsrsPlugin,
+		queue: QuizItem[],
+		totalInSession: number,
+	) {
 		super(app);
 		this.plugin = plugin;
-		this.item = item;
-		this.question = item.question;
-		this.answer = item.answer;
+		this.queue = queue;
+		this.currentItem = queue[0];
+		this.totalInSession = totalInSession;
+
+		// Note: The rest of the original constructor logic that sets this.question, this.answer etc.
+		// should be moved here and use this.currentItem instead of this.item.
+		this.question = this.currentItem.question;
+		this.answer = this.currentItem.answer;
 	}
 
 	private transformClozesInElement(element: HTMLElement) {
@@ -52,7 +64,7 @@ export class QuizModal extends Modal {
 				matchFoundInTextNode = true;
 				const clozeId = match[1];
 				// Do not render the active cloze's content as a capsule
-				if (clozeId === this.item.id) {
+				if (clozeId === this.currentItem.id) {
 					// Add the raw placeholder back as text
 					fragment.appendChild(document.createTextNode(match[0]));
 					lastIndex = clozeRegex.lastIndex;
@@ -112,21 +124,25 @@ export class QuizModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("quiz-modal-content");
-		const timerContainer = contentEl.createDiv({
+		const headerContainer = contentEl.createDiv({
+			cls: "quiz-header-container",
+		});
+
+		// Timer bar
+		const timerContainer = headerContainer.createDiv({
 			cls: "quiz-timer-container",
 		});
 		timerContainer.createDiv({ cls: "quiz-timer-bar" });
-		contentEl
-			.createEl("h2", {
-				text: `Quiz: ${this.item.file.basename}`,
-			})
-			.addClass("quiz-modal-title");
 
+		// Counter text
+		const counterEl = headerContainer.createDiv({ cls: "quiz-counter" });
+		const currentCardNumber = this.totalInSession - this.queue.length + 1;
+		counterEl.setText(`${currentCardNumber} / ${this.totalInSession}`);
 		// Prepare question text for display
 		let questionToRender = this.question;
-		if (this.item.isCloze) {
+		if (this.currentItem.isCloze) {
 			const activeClozeRegex = new RegExp(
-				`\\{\\{${this.item.id}::((?:.|\\n)*?)\\}\\}`,
+				`\\{\\{${this.currentItem.id}::((?:.|\\n)*?)\\}\\}`,
 			);
 			questionToRender = this.question.replace(
 				activeClozeRegex,
@@ -145,12 +161,12 @@ export class QuizModal extends Modal {
 			this.app,
 			questionToRender,
 			questionDiv,
-			this.item.file.path,
+			this.currentItem.file.path,
 			this.plugin,
 		);
 
 		// Post-process to render non-active clozes as capsules
-		if (this.item.isCloze) {
+		if (this.currentItem.isCloze) {
 			this.transformClozesInElement(questionDiv);
 		}
 
@@ -222,7 +238,7 @@ export class QuizModal extends Modal {
 			this.app,
 			this.answer,
 			answerDiv,
-			this.item.file.path,
+			this.currentItem.file.path,
 			this.plugin,
 		);
 
@@ -286,13 +302,16 @@ export class QuizModal extends Modal {
 		if (localRatingEnum === undefined) return;
 
 		const now = new Date();
-		const schedules = this.plugin.fsrsInstance.repeat(this.item.card, now);
+		const schedules = this.plugin.fsrsInstance.repeat(
+			this.currentItem.card,
+			now,
+		);
 		const updatedCard = schedules[localRatingEnum]?.card;
 
 		if (updatedCard) {
 			await this.plugin.updateCardDataInNote(
-				this.item.file,
-				this.item.id,
+				this.currentItem.file,
+				this.currentItem.id,
 				updatedCard,
 			);
 			new Notice(
@@ -302,8 +321,25 @@ export class QuizModal extends Modal {
 			new Notice("Error updating card schedule.", 5000);
 			console.error("FSRS Error: Could not update card schedule.");
 		}
+
 		this.close();
-		this.plugin.startQuizSession();
+
+		const nextQueue = this.queue.slice(1);
+
+		// NEW: Update the ribbon badge and calendar with the new number of due cards.
+		await this.plugin.updateUIDisplays(nextQueue.length);
+
+		if (nextQueue.length > 0) {
+			new QuizModal(
+				this.app,
+				this.plugin,
+				nextQueue,
+				this.totalInSession,
+			).open();
+		} else {
+			new Notice("Quiz session complete!");
+			// The final UI update is now handled by the line added above.
+		}
 	}
 
 	mapIntToLocalRating(ratingInt: number): Rating | undefined {

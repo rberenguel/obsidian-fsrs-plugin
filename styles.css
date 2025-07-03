@@ -131,7 +131,7 @@
 
 /* Optional: Hover effect for the whole capsule */
 .fsrs-cloze-capsule:hover {
-    filter: invert(0.8) sepia(0.5) hue-rotate(-30deg);
+	filter: invert(0.8) sepia(0.5) hue-rotate(-30deg);
 }
 
 .fsrs-ribbon-icon {
@@ -194,49 +194,69 @@
  * FSRS Question Styling 
  */
 
-.fsrs-question-container  {
-  padding: 4px 8px !important;
-  border-radius: 2px;
+.fsrs-question-container {
+	padding: 4px 8px !important;
+	border-radius: 2px;
 }
 
-.fsrs-question-container.HyperMD-header.cm-line  {
-  margin-top: 0.2em !important;
-  margin-bottom: 0.2em !important;
+.fsrs-question-container.HyperMD-header.cm-line {
+	margin-top: 0.2em !important;
+	margin-bottom: 0.2em !important;
 }
 
-.theme-light .fsrs-question-container  {
-  background-color: rgba(0, 0, 50, 0.15); 
+.theme-light .fsrs-question-container {
+	background-color: rgba(0, 0, 50, 0.15);
 }
 
-
-.theme-dark .fsrs-question-container  {
-  background-color: rgba(255, 200, 200, 0.15);
+.theme-dark .fsrs-question-container {
+	background-color: rgba(255, 200, 200, 0.15);
 }
 
 @keyframes fill-timer-bar {
-  from { width: 0%; }
-  to { width: 100%; }
+	from {
+		width: 0%;
+	}
+	to {
+		width: 100%;
+	}
 }
 
 /* The container provides the background "track" for the timer */
 .quiz-timer-container {
-  width: 100%;
-  background-color: var(--background-modifier-border);
-  border-radius: 3px;
-  margin-bottom: 12px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	margin-bottom: 12px;
 }
 
 /* The actual progressing bar */
 .quiz-timer-bar {
-  height: 3px;
-  background-color: var(--color-accent);
-  border-radius: 3px;
+	height: 3px;
+	background-color: var(--color-accent);
+	border-radius: 3px;
 
-  /* Apply the smooth animation */
-  animation-name: fill-timer-bar;
-  animation-duration: 60s; /* The total time it takes to fill */
-  animation-timing-function: linear; /* Constant speed */
-  animation-fill-mode: forwards; /* Stay at 100% width when finished */
+	/* Apply the smooth animation */
+	animation-name: fill-timer-bar;
+	animation-duration: 60s; /* The total time it takes to fill */
+	animation-timing-function: linear; /* Constant speed */
+	animation-fill-mode: forwards; /* Stay at 100% width when finished */
+}
+
+.quiz-header-container {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px; /* Adds space between timer and counter */
+	margin-bottom: 12px;
+}
+
+.quiz-timer-container {
+	flex-grow: 1; /* Allows the timer to take up available space */
+	margin-bottom: 0; /* Remove margin as it's now on the parent */
+}
+
+.quiz-counter {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }
 
 @media (max-width: 768px) {

@@ -295,7 +295,6 @@ function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 					)}$`,
 				);
 
-
 				for (const { from, to } of view.visibleRanges) {
 					let pos = from;
 					while (pos <= to) {
@@ -715,13 +714,11 @@ export default class FsrsPlugin extends Plugin {
 				});
 			}
 		}
-
 		return allItems;
 	}
-
 	async startQuizSession() {
 		const dueItems = await this.getDueReviewItems();
-		await this.updateUIDisplays(dueItems.length);
+		this.updateUIDisplays(dueItems.length);
 
 		if (dueItems.length === 0) {
 			new Notice(
@@ -738,7 +735,8 @@ export default class FsrsPlugin extends Plugin {
 		};
 		shuffleArray(dueItems);
 
-		new QuizModal(this.app, this, dueItems[0]).open();
+		// Open the first modal, passing the entire queue and the total count
+		new QuizModal(this.app, this, dueItems, dueItems.length).open();
 	}
 
 	async loadSettings() {

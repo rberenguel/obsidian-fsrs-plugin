@@ -142,6 +142,7 @@ export class CalendarView extends ItemView {
 		}
 	}
 
+	// In CalendarView.ts
 	private async getAllDueDates(): Promise<
 		Record<string, { overdue: number; today: number; future: number }>
 	> {
@@ -150,35 +151,39 @@ export class CalendarView extends ItemView {
 			string,
 			{ overdue: number; today: number; future: number }
 		> = {};
-		const today = window.moment().startOf("day");
+
+		const now = window.moment();
+		const todayStart = now.clone().startOf("day");
 
 		for (const item of allItems) {
 			if (!item.card || !item.card.due) continue;
-			const dueDateObj =
-				typeof item.card.due === "string"
-					? new Date(item.card.due)
-					: item.card.due;
-			if (!(dueDateObj instanceof Date) || isNaN(dueDateObj.getTime()))
-				continue;
 
-			const dueMoment = window.moment(dueDateObj).startOf("day");
+			const dueDate = window.moment(item.card.due);
+			if (!dueDate.isValid()) continue;
 
-			if (dueMoment.isBefore(today)) {
-				const todayStr = today.format("YYYY-MM-DD");
-				if (!dueDates[todayStr]) {
-					dueDates[todayStr] = { overdue: 0, today: 0, future: 0 };
-				}
+			const dueDay = dueDate.clone().startOf("day");
+			const todayStr = todayStart.format("YYYY-MM-DD");
+
+			if (!dueDates[todayStr]) {
+				dueDates[todayStr] = { overdue: 0, today: 0, future: 0 };
+			}
+
+			if (dueDate.isSameOrBefore(now)) {
+				// Anything due in the past or right now is "overdue" for review.
+				// This will be rendered as a RED dot on today's calendar entry.
 				dueDates[todayStr].overdue++;
+			} else if (dueDay.isSame(todayStart)) {
+				// It's due later today.
+				// This will be rendered as an ORANGE dot on today's calendar entry.
+				dueDates[todayStr].today++;
 			} else {
-				const dateStr = dueMoment.format("YYYY-MM-DD");
+				// It's due on a future date.
+				// This will be rendered as a CYAN dot on the specific future date.
+				const dateStr = dueDay.format("YYYY-MM-DD");
 				if (!dueDates[dateStr]) {
 					dueDates[dateStr] = { overdue: 0, today: 0, future: 0 };
 				}
-				if (dueMoment.isSame(today, "day")) {
-					dueDates[dateStr].today++;
-				} else {
-					dueDates[dateStr].future++;
-				}
+				dueDates[dateStr].future++;
 			}
 		}
 		return dueDates;
