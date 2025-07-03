@@ -51,53 +51,58 @@ export class CalendarView extends ItemView {
 					const dateStr = date.format("YYYY-MM-DD");
 					const counts = dueDates[dateStr];
 
-					if (
-						counts &&
-						(counts.overdue > 0 ||
-							counts.today > 0 ||
-							counts.future > 0)
-					) {
-						// This logic is restored from the original to include classNames
-						const overdueDots = Array.from(
-							{ length: counts.overdue || 0 },
-							() => ({
-								color: "var(--color-red)",
-								isFilled: true,
-								className: "dot-red",
-							}),
-						);
-						const todayDots = Array.from(
-							{ length: counts.today || 0 },
-							() => ({
-								color: "var(--color-orange)",
-								isFilled: true,
-								className: "dot-orange",
-							}),
-						);
-						const futureDots = Array.from(
-							{ length: counts.future || 0 },
-							() => ({
-								color: "var(--color-cyan)",
-								isFilled: true,
-								className: "dot-cyan",
-							}),
-						);
+					if (!counts) return { classes: [] };
+					const overdueDots = Array.from(
+						{ length: counts.overdue || 0 },
+						() => ({
+							color: "var(--color-red)",
+							isFilled: true,
+							className: "dot-red",
+						}),
+					);
+					const todayDots = Array.from(
+						{ length: counts.today || 0 },
+						() => ({
+							color: "var(--color-orange)",
+							isFilled: true,
+							className: "dot-orange",
+						}),
+					);
+					const futureDots = Array.from(
+						{ length: counts.future || 0 },
+						() => ({
+							color: "var(--color-grey)",
+							isFilled: true,
+							className: "dot-grey",
+						}),
+					);
+					const newDots = Array.from(
+						{ length: counts.new || 0 },
+						() => ({
+							color: "var(--color-green)",
+							isFilled: true,
+							className: "dot-green",
+						}),
+					);
 
-						const allDots = [
-							...overdueDots,
-							...todayDots,
-							...futureDots,
-						];
-						const totalCount = allDots.length;
+					const allDots = [
+						...overdueDots,
+						...todayDots,
+						...futureDots,
+						...newDots,
+					];
+					const totalCount = allDots.length;
 
-						if (totalCount > 0) {
-							return {
-								dots: allDots,
-								dataAttributes: {
-									"fsrs-due-count": String(totalCount),
-								},
-							};
-						}
+					if (totalCount > 0) {
+						return {
+							dots: allDots,
+							dataAttributes: {
+								"fsrs-due-new": String(counts.new || 0),
+								"fsrs-due-overdue": String(counts.overdue || 0),
+								"fsrs-due-today": String(counts.today || 0),
+								"fsrs-due-future": String(counts.future || 0),
+							},
+						};
 					}
 					return { classes: [] };
 				},
@@ -114,13 +119,44 @@ export class CalendarView extends ItemView {
 						date: moment.Moment,
 						targetEl: HTMLElement,
 					) => {
-						const count = targetEl.getAttribute("fsrs-due-count");
-						if (count) {
+						// Build the detailed tooltip string
+						const newCount = parseInt(
+							targetEl.getAttribute("fsrs-due-new") || "0",
+						);
+						const overdueCount = parseInt(
+							targetEl.getAttribute("fsrs-due-overdue") || "0",
+						);
+						const laterTodayCount = parseInt(
+							targetEl.getAttribute("fsrs-due-today") || "0",
+						);
+						const futureCount = parseInt(
+							targetEl.getAttribute("fsrs-due-future") || "0",
+						);
+
+						// "Due" cards are red (overdue) and grey (future scheduled)
+						const dueCount = overdueCount + futureCount;
+
+						const parts: string[] = [];
+						if (newCount > 0) {
+							parts.push(
+								`${newCount} new card${newCount > 1 ? "s" : ""}`,
+							);
+						}
+						if (dueCount > 0) {
+							parts.push(
+								`${dueCount} card${dueCount > 1 ? "s" : ""} due`,
+							);
+						}
+						if (laterTodayCount > 0) {
+							parts.push(
+								`${laterTodayCount} card${laterTodayCount > 1 ? "s" : ""} due later`,
+							);
+						}
+
+						if (parts.length > 0) {
 							targetEl.setAttribute(
 								"aria-label",
-								`${count} card${
-									parseInt(count) !== 1 ? "s" : ""
-								} due`,
+								parts.join("\n"),
 							);
 						}
 					},
@@ -144,48 +180,107 @@ export class CalendarView extends ItemView {
 
 	// In CalendarView.ts
 	private async getAllDueDates(): Promise<
-		Record<string, { overdue: number; today: number; future: number }>
+		Record<
+			string,
+			{ overdue: number; today: number; future: number; new: number }
+		>
 	> {
+		await this.plugin.dailyReset();
 		const allItems = await this.plugin.getAllReviewItems();
 		const dueDates: Record<
 			string,
-			{ overdue: number; today: number; future: number }
+			{ overdue: number; today: number; future: number; new: number }
 		> = {};
 
 		const now = window.moment();
 		const todayStart = now.clone().startOf("day");
 
-		for (const item of allItems) {
-			if (!item.card || !item.card.due) continue;
+		const scheduledReviews = allItems.filter(
+			(item) => item.card.state && item.card.state !== "new",
+		);
+		const allNewCards = allItems.filter(
+			(item) => !item.card.state || item.card.state === "new",
+		);
 
+		// 1. Process all scheduled reviews
+		for (const item of scheduledReviews) {
+			if (!item.card.due) continue;
 			const dueDate = window.moment(item.card.due);
 			if (!dueDate.isValid()) continue;
 
 			const dueDay = dueDate.clone().startOf("day");
-			const todayStr = todayStart.format("YYYY-MM-DD");
+			const dateStr = dueDay.format("YYYY-MM-DD");
 
-			if (!dueDates[todayStr]) {
-				dueDates[todayStr] = { overdue: 0, today: 0, future: 0 };
+			if (!dueDates[dateStr]) {
+				dueDates[dateStr] = { overdue: 0, today: 0, future: 0, new: 0 };
 			}
 
 			if (dueDate.isSameOrBefore(now)) {
-				// Anything due in the past or right now is "overdue" for review.
-				// This will be rendered as a RED dot on today's calendar entry.
+				// Due now or in the past (red dot on today's date)
+				const todayStr = todayStart.format("YYYY-MM-DD");
+				if (!dueDates[todayStr]) {
+					dueDates[todayStr] = {
+						overdue: 0,
+						today: 0,
+						future: 0,
+						new: 0,
+					};
+				}
 				dueDates[todayStr].overdue++;
 			} else if (dueDay.isSame(todayStart)) {
-				// It's due later today.
-				// This will be rendered as an ORANGE dot on today's calendar entry.
-				dueDates[todayStr].today++;
+				// Due later today (orange dot)
+				dueDates[dateStr].today++;
 			} else {
-				// It's due on a future date.
-				// This will be rendered as a CYAN dot on the specific future date.
-				const dateStr = dueDay.format("YYYY-MM-DD");
-				if (!dueDates[dateStr]) {
-					dueDates[dateStr] = { overdue: 0, today: 0, future: 0 };
-				}
+				// Due on a future date (grey dot)
 				dueDates[dateStr].future++;
 			}
 		}
+
+		// 2. Process all new cards with spill-over logic
+		const newCardsToShowToday = Math.max(
+			0,
+			this.plugin.settings.maxNewCardsPerDay -
+				this.plugin.settings.newCardsReviewedToday,
+		);
+		let remainingNewCards = [...allNewCards];
+
+		// Add green dots for today
+		if (newCardsToShowToday > 0) {
+			const todayStr = todayStart.format("YYYY-MM-DD");
+			if (!dueDates[todayStr]) {
+				dueDates[todayStr] = {
+					overdue: 0,
+					today: 0,
+					future: 0,
+					new: 0,
+				};
+			}
+			const cardsForToday = Math.min(
+				remainingNewCards.length,
+				newCardsToShowToday,
+			);
+			dueDates[todayStr].new += cardsForToday;
+			remainingNewCards.splice(0, cardsForToday);
+		}
+
+		// Project the rest onto future days
+		let dayOffset = 1;
+		while (remainingNewCards.length > 0) {
+			const dateForDots = todayStart.clone().add(dayOffset, "days");
+			const dateStr = dateForDots.format("YYYY-MM-DD");
+			if (!dueDates[dateStr]) {
+				dueDates[dateStr] = { overdue: 0, today: 0, future: 0, new: 0 };
+			}
+			const cardsForDay = Math.min(
+				remainingNewCards.length,
+				this.plugin.settings.maxNewCardsPerDay,
+			);
+			dueDates[dateStr].new += cardsForDay;
+			remainingNewCards.splice(0, cardsForDay);
+			dayOffset++;
+			if (dayOffset > 1000) break; // Safety break
+		}
+
 		return dueDates;
 	}
 }

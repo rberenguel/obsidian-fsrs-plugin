@@ -1,51 +1,48 @@
-# Obsidian FSRS Quiz Plugin: Project Summary
+# Refactoring Plan
 
-## 1. Goal of the Project
+## Goal
 
-* To create an Obsidian plugin that enables users to practice spaced repetition learning using their notes.
-* To implement the FSRS (Free Spaced Repetition Scheduler) algorithm for scheduling reviews.
-* To allow users to easily create flashcards from content within their Obsidian notes and review them efficiently.
-* To support both traditional "Question --- Answer" style notes and inline cloze deletions (e.g., `{{id:answer}}`) for creating flashcards.
-* To provide a good user experience by visually distinguishing cloze deletions in both reading and live preview modes and allowing for easy editing.
+The plugin has grown in complexity, and the `main.ts` file is currently handling too many different responsibilities (plugin startup, state management, parsing, scheduling, UI decoration). The goal of this refactoring is to separate these concerns into different, focused files. This will make the codebase cleaner, easier to maintain, and simpler to extend in the future, following the Single Responsibility Principle.
 
-## 2. How the Plugin Works
+---
 
-* **Note Identification for Quizzing:**
-    * Notes are marked as "quiz notes" if they contain a specific YAML frontmatter key (default: `quiz`) set to `true`. This key is configurable.
-* **Flashcard Formats:**
-    * **Traditional:** Content before the first `---` in the note body is the question; content after is the answer.
-    * **Cloze Deletion:** Text can contain inline patterns like `{{id:content}}`. Each pattern can become a separate flashcard where "content" is the answer, and the surrounding text (with the active cloze replaced by ` [...] ` and other clozes rendered as their content) forms the question.
-* **FSRS Data Storage:**
-    * Scheduling data (due date, stability, difficulty, etc.) is stored in a JSON code block at the end of the note, separated by `---`.
-    * For simple Q/A notes, this is a single JSON object for the card.
-    * For notes with cloze deletions, this is a JSON map where keys are the cloze identifiers (e.g., "q1") and values are the card objects for each cloze.
-* **Core Functionality (`main.ts`, `QuizModal.ts`, `FsrsSettingsTab.ts`):**
-    * **Settings:** Allow configuration of frontmatter key, hotkeys for rating ("Again", "Hard", "Good", "Easy").
-    * **Quiz Session:**
-        * A ribbon icon ("brain") or command starts a quiz session.
-        * It identifies notes with the quiz frontmatter and FSRS items that are currently due.
-        * Presents one question at a time in a modal (`QuizModal`).
-    * **Quiz Modal:**
-        * Displays the question (with the active cloze replaced by ` [...] ` and other clozes rendered as their content, or the main question for simple notes).
-        * Reveals the answer (active cloze content or main answer) on click or spacebar.
-        * Provides rating buttons which update the card's FSRS data using `fsrsInstance.repeat()` and save it back to the note.
-* **Cloze Rendering:**
-    * **Reading View:** A `MarkdownPostProcessor` finds `{{id:content}}` in quiz notes and replaces it with a styled "capsule" showing only "content" (e.g., "❓ content").
-    * **Live Preview:** A CodeMirror 6 `ViewPlugin` with `Decorations` achieves the same visual transformation, replacing `{{id:content}}` with a widget displaying the styled "capsule". This rendering reverts to raw text when the cursor is inside the cloze for editing.
-    * **Quiz Modal Question Display:** Non-active cloze placeholders in the question are also rendered as their content (currently as plain text, aiming for styled capsules).
+## Proposed File Structure
 
-## 3. What We Have Been Doing (Iterative Process Highlights)
+The plan is to organize the code into logical directories:
 
-1.  **Foundation & FSRS Core:** Initial setup, FSRS JavaScript library integration, basic Q/A parsing, and storing FSRS data in notes.
-2.  **TypeScript & Structure:** Refactoring into TypeScript with separate modules for plugin logic, quiz modal, and settings.
-3.  **UI/UX:** Implemented Markdown rendering for Q/A in the modal, configurable hotkeys, ribbon icon, and commands.
-4.  **Frontmatter & Note Management:** Switched to frontmatter for quiz note identification, refined note content parsing (`parseNoteContent`) and FSRS data writing (`writeFsrsDataToNote`) to correctly handle frontmatter and the FSRS JSON block, fixing data corruption issues.
-5.  **Cloze Deletion Feature - Phase 1 (Logic):**
-    * Modified `parseNoteContent` to identify `{{id:content}}` patterns.
-    * Adapted `startQuizSession` to differentiate between simple Q/A notes and cloze notes, preparing `QuizItem` data accordingly. For cloze notes, it now expects/works with a map of FSRS cards in the JSON block.
-    * Updated `QuizModal` to accept `QuizItem`, display the correct question/answer for either type (rendering only the active cloze as ` [...] `), and handle saving data back to either a single FSRS object or the map of FSRS objects for clozes.
-    * Refined quiz session logic to only pick strictly due items.
-6.  **Cloze Deletion Feature - Phase 2 (Rendering):**
-    * Implemented a `MarkdownPostProcessor` to render `{{id:content}}` as styled "content" (capsule with icon) in Reading View for quiz notes only.
-    * Implemented a CodeMirror 6 `ViewPlugin` with `Decorations` to achieve the same styled rendering in Live Preview for quiz notes, which also reverts to raw text when the cursor enters the cloze for editing.
-    * Currently refining how non-active clozes are displayed within the Quiz Modal's question area to match this styled rendering.
+### 1. `main.ts` (The Lean Entry Point)
+
+The `main.ts` file will be significantly slimmed down. Its only responsibility will be to initialize the plugin by:
+-   Importing functionality from the new modules.
+-   Registering commands, settings tabs, views, and editor extensions.
+-   Wiring all the different components together.
+
+### 2. `ui/` Directory (User Interface Components)
+
+This new directory will contain everything related to what the user sees and interacts with.
+-   `ui/QuizModal.ts` (Existing)
+-   `ui/CalendarView.ts` (Existing)
+-   `ui/FsrsSettingsTab.ts` (Existing)
+-   `ui/decorations.ts` **(New)**: This file will contain all the CodeMirror editor styling logic, including the `ViewPlugin` builder functions (for capsules and line shading) and their `Widget` classes.
+
+### 3. `logic/` Directory (Core Business Logic)
+
+This new directory will contain the "brains" of the plugin.
+-   `logic/scheduler.ts` **(New)**: Will handle the core logic of determining which cards to review. It will contain functions like `getDueReviewItems()` and `getAllReviewItems()`.
+-   `logic/state.ts` **(New)**: Will be responsible for managing the persistent state for the new card queue, containing functions like `dailyReset()` and `incrementNewCardCount()`.
+-   `logic/parser.ts` **(New)**: Will hold lower-level functions that read and interpret the content of a note file, such as `parseFileContent()`.
+
+### 4. `types.ts` (Centralized Type Definitions)
+
+A new `types.ts` file will be created to consolidate all shared TypeScript interfaces. This provides a single source of truth for the data structures used throughout the plugin.
+-   `FsrsPluginSettings`
+-   `Card`
+-   `QuizItem`
+
+---
+
+## Benefits of This Approach
+
+-   **Clarity**: It will be easy to know exactly where to look when changing a specific piece of functionality.
+-   **Maintainability**: Smaller, focused files are much simpler to debug and manage.
+-   **Scalability**: Adding new features will be a cleaner process, often involving a new, self-contained file rather than increasing the complexity of existing ones.

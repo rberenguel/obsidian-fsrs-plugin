@@ -1,4 +1,12 @@
-import { App, Modal, Notice, TFile, moment, MarkdownRenderer } from "obsidian";
+import {
+	App,
+	Modal,
+	Notice,
+	TFile,
+	moment,
+	MarkdownRenderer,
+	setIcon,
+} from "obsidian";
 import type FsrsPlugin from "./main";
 import type { Card, QuizItem } from "./main";
 
@@ -119,7 +127,17 @@ export class QuizModal extends Modal {
 			);
 		}
 	}
+	async navigateToSource() {
+		this.close(); // Close the modal before navigating
 
+		const file = this.currentItem.file;
+		// The 'id' for a Q&A card is its block reference
+		const blockId = this.currentItem.id;
+
+		// Construct the link text and open it
+		const linktext = `${file.path}#^${blockId}`;
+		await this.app.workspace.openLinkText(linktext, file.path, false);
+	}
 	async onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
@@ -127,13 +145,24 @@ export class QuizModal extends Modal {
 		const headerContainer = contentEl.createDiv({
 			cls: "quiz-header-container",
 		});
-
+		const leftContainer = headerContainer.createDiv({
+			cls: "quiz-header-left",
+		});
 		// Timer bar
 		const timerContainer = headerContainer.createDiv({
 			cls: "quiz-timer-container",
 		});
 		timerContainer.createDiv({ cls: "quiz-timer-bar" });
-
+		if (!this.currentItem.isCloze) {
+			const linkEl = leftContainer.createEl("a", {
+				cls: "quiz-link-icon",
+			});
+			linkEl.setAttribute("aria-label", "Go to source");
+			setIcon(linkEl, "link");
+			linkEl.onclick = () => {
+				this.navigateToSource();
+			};
+		}
 		// Counter text
 		const counterEl = headerContainer.createDiv({ cls: "quiz-counter" });
 		const currentCardNumber = this.totalInSession - this.queue.length + 1;
@@ -298,6 +327,7 @@ export class QuizModal extends Modal {
 	}
 
 	async handleRatingByValue(ratingValue: number) {
+		const wasNew = this.currentItem.card.state === "new";
 		const localRatingEnum = this.mapIntToLocalRating(ratingValue);
 		if (localRatingEnum === undefined) return;
 
@@ -314,6 +344,10 @@ export class QuizModal extends Modal {
 				this.currentItem.id,
 				updatedCard,
 			);
+			// If the card was new, increment the daily counter
+			if (wasNew) {
+				await this.plugin.incrementNewCardCount();
+			}
 			new Notice(
 				`Rated - next review: ${moment(updatedCard.due).calendar()}`,
 			);
@@ -326,7 +360,6 @@ export class QuizModal extends Modal {
 
 		const nextQueue = this.queue.slice(1);
 
-		// NEW: Update the ribbon badge and calendar with the new number of due cards.
 		await this.plugin.updateUIDisplays(nextQueue.length);
 
 		if (nextQueue.length > 0) {
@@ -338,7 +371,6 @@ export class QuizModal extends Modal {
 			).open();
 		} else {
 			new Notice("Quiz session complete!");
-			// The final UI update is now handled by the line added above.
 		}
 	}
 

@@ -107,5 +107,25 @@ export class FsrsSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+
+		new Setting(containerEl)
+			.setName("Max new cards per day")
+			.setDesc(
+				"The maximum number of new cards to introduce during a review session each day.",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("20")
+					.setValue(String(this.plugin.settings.maxNewCardsPerDay))
+					.onChange(async (value) => {
+						const num = Number(value);
+						if (!isNaN(num) && num >= 0) {
+							this.plugin.settings.maxNewCardsPerDay = num;
+							await this.plugin.saveSettings();
+							// Add this line to force a refresh of the UI
+							await this.plugin.updateUIDisplays();
+						}
+					}),
+			);
 	}
 }

@@ -570,6 +570,21 @@ export default class FsrsPlugin extends Plugin {
 		}
 	}
 
+	async dailyReset() {
+		const today = moment().format("YYYY-MM-DD");
+		if (this.settings.lastReviewDate !== today) {
+			this.settings.lastReviewDate = today;
+			this.settings.newCardsReviewedToday = 0;
+			await this.saveSettings();
+		}
+	}
+
+	async incrementNewCardCount(count: number = 1) {
+		await this.dailyReset(); // Ensure we're on the correct day
+		this.settings.newCardsReviewedToday += count;
+		await this.saveSettings();
+	}
+
 	async updateUIDisplays(dueCount?: number) {
 		if (dueCount === undefined) {
 			if (document.querySelector(".quiz-modal-content")) return;
@@ -604,20 +619,48 @@ export default class FsrsPlugin extends Plugin {
 			});
 	}
 
+	// In main.ts
 	async getDueReviewItems(): Promise<QuizItem[]> {
-		const allQuizItems = await this.getAllReviewItems();
+		await this.dailyReset();
+
+		const allItems = await this.getAllReviewItems();
 		const now = new Date();
-		return allQuizItems.filter((item) => {
-			const dueDate =
-				typeof item.card.due === "string"
-					? new Date(item.card.due)
-					: item.card.due;
-			return (
-				dueDate instanceof Date &&
-				!isNaN(dueDate.getTime()) &&
-				dueDate <= now
-			);
-		});
+
+		const dueReviews: QuizItem[] = [];
+		const allNewCards: QuizItem[] = [];
+
+		// Partition all items into either new or scheduled
+		for (const item of allItems) {
+			// A card is considered new if its state is literally "new" or if it has no state property.
+			if (item.card.state === "new" || !item.card.state) {
+				allNewCards.push(item);
+			} else {
+				// It's a scheduled card, so check if it's due.
+				const dueDate =
+					typeof item.card.due === "string"
+						? new Date(item.card.due)
+						: item.card.due;
+				if (
+					dueDate instanceof Date &&
+					!isNaN(dueDate.getTime()) &&
+					dueDate <= now
+				) {
+					dueReviews.push(item);
+				}
+			}
+		}
+
+		// Determine how many new cards can be shown today
+		const newCardsAvailable =
+			this.settings.maxNewCardsPerDay -
+			this.settings.newCardsReviewedToday;
+		const newCardsForSession =
+			newCardsAvailable > 0
+				? allNewCards.slice(0, newCardsAvailable)
+				: [];
+
+		// The final queue is all due reviews plus the capped number of new cards
+		return [...dueReviews, ...newCardsForSession];
 	}
 
 	async getAllReviewItems(): Promise<QuizItem[]> {

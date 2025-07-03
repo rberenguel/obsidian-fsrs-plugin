@@ -5,6 +5,9 @@ export interface FsrsPluginSettings {
 	ratingHardKey: string;
 	ratingGoodKey: string;
 	ratingEasyKey: string;
+	maxNewCardsPerDay: number;
+	lastReviewDate: string;
+	newCardsReviewedToday: number;
 }
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
@@ -14,4 +17,7 @@ export const DEFAULT_SETTINGS: FsrsPluginSettings = {
 	ratingHardKey: "r",
 	ratingGoodKey: "s",
 	ratingEasyKey: "t",
+	maxNewCardsPerDay: 20,
+	lastReviewDate: "",
+	newCardsReviewedToday: 0,
 };

@@ -178,8 +178,12 @@
 	fill: #c60 !important;
 }
 
-.dot-cyan {
-	fill: #6cc !important;
+.dot-green {
+	fill: #0c0 !important;
+}
+
+.dot-grey {
+	fill: #ccc !important;
 }
 
 /* Custom capsule styling */
@@ -247,6 +251,21 @@
 	align-items: center;
 	gap: 16px; /* Adds space between timer and counter */
 	margin-bottom: 12px;
+}
+
+.quiz-header-left {
+	display: flex;
+	align-items: center;
+}
+
+.quiz-link-icon {
+	cursor: pointer;
+	color: var(--text-muted);
+	padding: 2px;
+}
+
+.quiz-link-icon:hover {
+	color: var(--text-accent);
 }
 
 .quiz-timer-container {
