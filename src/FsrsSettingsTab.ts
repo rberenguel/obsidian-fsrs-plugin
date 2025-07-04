@@ -127,5 +127,17 @@ export class FsrsSettingTab extends PluginSettingTab {
 						}
 					}),
 			);
+
+			new Setting(containerEl)
+			.setName("Shuffle new cards")
+			.setDesc("Randomize the order of new cards during a review session.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.shuffleNewCards)
+					.onChange(async (value) => {
+						this.plugin.settings.shuffleNewCards = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 }

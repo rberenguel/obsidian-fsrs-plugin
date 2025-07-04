@@ -9,6 +9,7 @@ import {
 } from "obsidian";
 import type FsrsPlugin from "./main";
 import type { Card, QuizItem } from "./main";
+import { State } from "./fsrs";
 
 export enum Rating {
 	Again = 1,
@@ -327,7 +328,7 @@ export class QuizModal extends Modal {
 	}
 
 	async handleRatingByValue(ratingValue: number) {
-		const wasNew = this.currentItem.card.state === "new";
+		const wasNew = this.currentItem.card.state === State.New;
 		const localRatingEnum = this.mapIntToLocalRating(ratingValue);
 		if (localRatingEnum === undefined) return;
 

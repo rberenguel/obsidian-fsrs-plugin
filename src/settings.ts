@@ -8,6 +8,7 @@ export interface FsrsPluginSettings {
 	maxNewCardsPerDay: number;
 	lastReviewDate: string;
 	newCardsReviewedToday: number;
+	shuffleNewCards: boolean;
 }
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
@@ -20,4 +21,5 @@ export const DEFAULT_SETTINGS: FsrsPluginSettings = {
 	maxNewCardsPerDay: 20,
 	lastReviewDate: "",
 	newCardsReviewedToday: 0,
+	shuffleNewCards: false,
 };

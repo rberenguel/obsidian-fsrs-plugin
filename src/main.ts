@@ -32,6 +32,8 @@ const FSRS_DATA_CODE_BLOCK_TYPE = "srs-data";
 const FSRS_CARD_MARKER = "?srs";
 const FSRS_CARD_END_MARKER = "?srs(end)";
 
+
+// WARNING: Keep this interface and ignore anything related to Card inside the fsrs library.
 export interface Card {
 	due: Date;
 	stability: number;
@@ -40,6 +42,10 @@ export interface Card {
 	scheduled_days: number;
 	reps: number;
 	lapses: number;
+	// WARNING: This type is misleading. The fsrs.js library uses a numeric
+	// enum for state (0: New, 1: Learning, etc.), not a string.
+	// Logic elsewhere relies on this numeric value. Avoid changing this
+	// interface and be cautious when handling this property.
 	state: "new" | "learning" | "review" | "relearning";
 }
 
@@ -649,7 +655,12 @@ export default class FsrsPlugin extends Plugin {
 				}
 			}
 		}
-
+		if (this.settings.shuffleNewCards) {
+			for (let i = allNewCards.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[allNewCards[i], allNewCards[j]] = [allNewCards[j], allNewCards[i]];
+			}
+		}
 		// Determine how many new cards can be shown today
 		const newCardsAvailable =
 			this.settings.maxNewCardsPerDay -
