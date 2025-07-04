@@ -1,6 +1,6 @@
 {
   "name": "Simple FSRS",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Simple spaced repetition with FSRS for Obsidian",
   "main": "main.js",
   "scripts": {
