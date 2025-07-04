@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type FsrsPlugin from "./main"; // Use 'type' for type-only import
-import { FsrsPluginSettings } from "./settings"; // Import from settings.ts
+import type FsrsPlugin from "../main"; // Use 'type' for type-only import
+import { FsrsPluginSettings } from "../types"; // Import from settings.ts
 
 export class FsrsSettingTab extends PluginSettingTab {
 	plugin: FsrsPlugin;
@@ -128,9 +128,11 @@ export class FsrsSettingTab extends PluginSettingTab {
 					}),
 			);
 
-			new Setting(containerEl)
+		new Setting(containerEl)
 			.setName("Shuffle new cards")
-			.setDesc("Randomize the order of new cards during a review session.")
+			.setDesc(
+				"Randomize the order of new cards during a review session.",
+			)
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.shuffleNewCards)

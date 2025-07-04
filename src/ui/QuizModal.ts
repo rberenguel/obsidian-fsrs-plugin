@@ -7,9 +7,9 @@ import {
 	MarkdownRenderer,
 	setIcon,
 } from "obsidian";
-import type FsrsPlugin from "./main";
-import type { Card, QuizItem } from "./main";
-import { State } from "./fsrs";
+import type FsrsPlugin from "../main";
+import type { Card, QuizItem } from "../types";
+import { State } from "../libs/fsrs";
 
 export enum Rating {
 	Again = 1,

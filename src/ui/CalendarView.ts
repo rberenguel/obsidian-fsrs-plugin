@@ -1,22 +1,25 @@
 import { ItemView, WorkspaceLeaf, moment } from "obsidian";
-import type FsrsPlugin from "./main";
+import type FsrsPlugin from "../main";
 import {
 	Calendar,
 	configureGlobalMomentLocale,
 	ICalendarSource,
 	IDayMetadata,
 } from "obsidian-calendar-ui";
+import { dailyReset } from "src/logic/state";
+import { getAllReviewItems } from "src/logic/scheduler";
+import { PluginContext } from "src/types";
 
 export const FSRS_CALENDAR_VIEW_TYPE = "fsrs-calendar-view";
 
 export class CalendarView extends ItemView {
-	private plugin: FsrsPlugin;
+	private context: PluginContext;
 	private calendar: Calendar | null = null;
 	private isRedrawing = false;
 
-	constructor(leaf: WorkspaceLeaf, plugin: FsrsPlugin) {
+	constructor(leaf: WorkspaceLeaf, context: PluginContext) {
 		super(leaf);
-		this.plugin = plugin;
+		this.context = context;
 	}
 
 	getViewType(): string {
@@ -178,15 +181,14 @@ export class CalendarView extends ItemView {
 		}
 	}
 
-	// In CalendarView.ts
 	private async getAllDueDates(): Promise<
 		Record<
 			string,
 			{ overdue: number; today: number; future: number; new: number }
 		>
 	> {
-		await this.plugin.dailyReset();
-		const allItems = await this.plugin.getAllReviewItems();
+		await dailyReset(this.context);
+		const allItems = await getAllReviewItems(this.context);
 		const dueDates: Record<
 			string,
 			{ overdue: number; today: number; future: number; new: number }
@@ -239,8 +241,8 @@ export class CalendarView extends ItemView {
 		// 2. Process all new cards with spill-over logic
 		const newCardsToShowToday = Math.max(
 			0,
-			this.plugin.settings.maxNewCardsPerDay -
-				this.plugin.settings.newCardsReviewedToday,
+			this.context.settings.maxNewCardsPerDay -
+				this.context.settings.newCardsReviewedToday,
 		);
 		let remainingNewCards = [...allNewCards];
 
@@ -273,7 +275,7 @@ export class CalendarView extends ItemView {
 			}
 			const cardsForDay = Math.min(
 				remainingNewCards.length,
-				this.plugin.settings.maxNewCardsPerDay,
+				this.context.settings.maxNewCardsPerDay,
 			);
 			dueDates[dateStr].new += cardsForDay;
 			remainingNewCards.splice(0, cardsForDay);
