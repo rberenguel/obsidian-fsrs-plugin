@@ -1,5 +1,5 @@
-import { FsrsPluginSettings, PluginContext } from "src/types";
-import { moment } from "obsidian";
+import { PluginContext } from "src/types";
+import moment from "moment";
 
 export async function dailyReset(context: PluginContext) {
 	const today = moment().format("YYYY-MM-DD");
@@ -15,6 +15,6 @@ export async function incrementNewCardCount(
 	count: number = 1,
 ) {
 	await dailyReset(context); // Ensure we're on the correct day
-	this.settings.newCardsReviewedToday += count;
+	context.settings.newCardsReviewedToday += count;
 	await context.saveSettings();
 }

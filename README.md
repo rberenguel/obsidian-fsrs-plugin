@@ -8,7 +8,7 @@ This is based on previous places where I have used FSRS ([Weave](https://github.
 and let it run with it. I played the role product owner / QA. After that, some code cleanup and a big breaking change.
 
 > [!NOTE]
-> The screenshots are a couple of patch versions old
+> The screenshots are a couple of patch versions old. The difference is not huge.
 
 ![](https://raw.githubusercontent.com/rberenguel/obsidian-fsrs-plugin/main/media/modal-question-and-editor.png)
 

@@ -25,7 +25,7 @@ import {
 	buildSrsMarkerViewPlugin,
 } from "./ui/decorations";
 import { getDueReviewItems } from "./logic/scheduler";
-import { parseFileContent } from "./logic/parser";
+import { processFile } from "./logic/parser";
 import {
 	FSRS_CARD_END_MARKER,
 	FSRS_CARD_MARKER,
@@ -298,7 +298,13 @@ export default class FsrsPlugin extends Plugin {
 		shuffleArray(dueItems);
 
 		// Open the first modal, passing the entire queue and the total count
-		new QuizModal(this.app, this, dueItems, dueItems.length).open();
+		new QuizModal(
+			this.app,
+			this.getContext(),
+			this,
+			dueItems,
+			dueItems.length,
+		).open();
 	}
 
 	async loadSettings() {
@@ -314,7 +320,7 @@ export default class FsrsPlugin extends Plugin {
 	}
 
 	async updateCardDataInNote(file: TFile, cardId: string, updatedCard: Card) {
-		const { body, schedules } = await parseFileContent(file);
+		const { body, schedules } = await processFile(this.app, file);
 		schedules[cardId] = updatedCard;
 
 		const dataBlockRegex = new RegExp(

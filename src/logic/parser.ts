@@ -1,17 +1,22 @@
+import { App, TFile } from "obsidian";
+import { load as parseYaml } from "js-yaml";
 import { Card } from "../types";
-import { TFile, parseYaml } from "obsidian";
-
 import {
 	FSRS_DATA_CODE_BLOCK_TYPE,
 	FSRS_CARD_MARKER,
 	FSRS_CARD_END_MARKER,
 } from "./consts";
 
-export async function parseFileContent(noteFile: TFile): Promise<{
+/**
+ * Parses the raw text content of a file.
+ * This is a PURE function, making it easy to test.
+ * @param fileContent The raw string content of a note.
+ * @returns An object containing the main body and the parsed schedule data.
+ */
+export function parseContent(fileContent: string): {
 	body: string;
 	schedules: Record<string, Card>;
-}> {
-	let fileContent = await this.app.vault.read(noteFile);
+} {
 	const dataBlockRegex = new RegExp(
 		`\n\`\`\`${FSRS_DATA_CODE_BLOCK_TYPE}\\n([\\s\\S]*?)\`\`\``,
 	);
@@ -23,14 +28,33 @@ export async function parseFileContent(noteFile: TFile): Promise<{
 	if (match) {
 		body = fileContent.substring(0, match.index);
 		try {
-			schedules = parseYaml(match[1]) || {};
+			const parsedYaml = parseYaml(match[1]);
+
+			// Safely check if the parsed result is a non-null object
+			if (parsedYaml && typeof parsedYaml === "object") {
+				schedules = parsedYaml as Record<string, Card>;
+			}
 		} catch (e) {
-			console.error(`FSRS: Error parsing YAML in ${noteFile.path}`, e);
+			console.error("FSRS: Error parsing schedule YAML", e);
+			// On error, schedules remains the default empty object
 		}
 	}
+	return { body, schedules };
+}
 
+/**
+ * Checks for and adds block IDs to question lines if they are missing.
+ * This is a PURE function, making it easy to test.
+ * @param body The main text body of a note.
+ * @returns An object indicating if a write is needed and the updated body.
+ */
+export function ensureBlockIds(body: string): {
+	needsWrite: boolean;
+	updatedBody: string;
+} {
 	const lines = body.split("\n");
 	let needsWrite = false;
+
 	for (let i = 0; i < lines.length; i++) {
 		const trimmedLine = lines[i].trim();
 		if (
@@ -38,20 +62,45 @@ export async function parseFileContent(noteFile: TFile): Promise<{
 			trimmedLine !== FSRS_CARD_END_MARKER &&
 			!/\^\w+$/.test(trimmedLine)
 		) {
-			const newId = `${Date.now().toString(36)}${Math.random()
-				.toString(36)
-				.substring(2, 5)}`;
+			const newId = `${Date.now().toString(36)}${Math.random().toString(36).substring(2, 5)}`;
 			lines[i] = `${trimmedLine} ^${newId}`;
 			needsWrite = true;
 		}
 	}
 
+	return {
+		needsWrite,
+		updatedBody: needsWrite ? lines.join("\n") : body,
+	};
+}
+
+/**
+ * The new orchestrator function that handles file I/O.
+ * This function reads a file, calls the pure parsers, and writes back if necessary.
+ * Other parts of the plugin should now call this function.
+ * @param app The Obsidian App instance.
+ * @param noteFile The TFile to process.
+ * @returns The final body and schedules after processing.
+ */
+export async function processFile(
+	app: App,
+	noteFile: TFile,
+): Promise<{ body: string; schedules: Record<string, Card> }> {
+	const fileContent = await app.vault.read(noteFile);
+
+	const { body: initialBody, schedules } = parseContent(fileContent);
+	const { needsWrite, updatedBody } = ensureBlockIds(initialBody);
+
 	if (needsWrite) {
-		const updatedBody = lines.join("\n");
+		const match = fileContent.match(
+			new RegExp(
+				`\n\`\`\`${FSRS_DATA_CODE_BLOCK_TYPE}\\n([\\s\\S]*?)\`\`\``,
+			),
+		);
 		const finalContent = match ? `${updatedBody}${match[0]}` : updatedBody;
-		await this.app.vault.modify(noteFile, finalContent);
+		await app.vault.modify(noteFile, finalContent);
 		return { body: updatedBody, schedules };
 	}
 
-	return { body, schedules };
+	return { body: initialBody, schedules };
 }

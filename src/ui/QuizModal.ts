@@ -8,8 +8,9 @@ import {
 	setIcon,
 } from "obsidian";
 import type FsrsPlugin from "../main";
-import type { Card, QuizItem } from "../types";
+import type { Card, PluginContext, QuizItem } from "../types";
 import { State } from "../libs/fsrs";
+import { incrementNewCardCount } from "src/logic/state";
 
 export enum Rating {
 	Again = 1,
@@ -19,6 +20,7 @@ export enum Rating {
 }
 
 export class QuizModal extends Modal {
+	context: PluginContext;
 	plugin: FsrsPlugin;
 	queue: QuizItem[];
 	currentItem: QuizItem;
@@ -33,11 +35,13 @@ export class QuizModal extends Modal {
 
 	constructor(
 		app: App,
+		context: PluginContext,
 		plugin: FsrsPlugin,
 		queue: QuizItem[],
 		totalInSession: number,
 	) {
 		super(app);
+		this.context = context;
 		this.plugin = plugin;
 		this.queue = queue;
 		this.currentItem = queue[0];
@@ -217,10 +221,10 @@ export class QuizModal extends Modal {
 			}
 		} else {
 			const keyMap: Record<string, number> = {
-				[this.plugin.settings.ratingAgainKey.toLowerCase()]: 1,
-				[this.plugin.settings.ratingHardKey.toLowerCase()]: 2,
-				[this.plugin.settings.ratingGoodKey.toLowerCase()]: 3,
-				[this.plugin.settings.ratingEasyKey.toLowerCase()]: 4,
+				[this.context.settings.ratingAgainKey.toLowerCase()]: 1,
+				[this.context.settings.ratingHardKey.toLowerCase()]: 2,
+				[this.context.settings.ratingGoodKey.toLowerCase()]: 3,
+				[this.context.settings.ratingEasyKey.toLowerCase()]: 4,
 			};
 			const ratingValue = keyMap[event.key.toLowerCase()];
 			if (ratingValue) {
@@ -347,7 +351,7 @@ export class QuizModal extends Modal {
 			);
 			// If the card was new, increment the daily counter
 			if (wasNew) {
-				await this.plugin.incrementNewCardCount();
+				await incrementNewCardCount(this.context);
 			}
 			new Notice(
 				`Rated - next review: ${moment(updatedCard.due).calendar()}`,
@@ -366,6 +370,7 @@ export class QuizModal extends Modal {
 		if (nextQueue.length > 0) {
 			new QuizModal(
 				this.app,
+				this.context,
 				this.plugin,
 				nextQueue,
 				this.totalInSession,

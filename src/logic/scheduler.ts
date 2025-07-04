@@ -4,7 +4,7 @@ import { fsrs, createEmptyCard, FSRS } from "../libs/fsrs";
 import { FSRS_CARD_MARKER, FSRS_CARD_END_MARKER } from "./consts";
 import { FsrsPluginSettings, DEFAULT_SETTINGS, QuizItem, Card } from "../types";
 import { dailyReset } from "./state";
-import { parseFileContent } from "./parser";
+import { processFile } from "./parser";
 
 export async function getQuizNotes(context: PluginContext): Promise<TFile[]> {
 	const allFiles = context.app.vault.getMarkdownFiles();
@@ -23,7 +23,7 @@ export async function getAllReviewItems(
 	const now = new Date();
 
 	for (const noteFile of quizNotes) {
-		const { body, schedules } = await parseFileContent(noteFile);
+		const { body, schedules } = await processFile(context.app, noteFile);
 
 		const lines = body.split("\n");
 		let currentQuestion = "";
