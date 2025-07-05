@@ -35,6 +35,24 @@ const copyPlugin = {
   },
 };
 
+// For some reason CalendarView is pulling path and os, which I don't want on mobile.
+const resolveEmptyPlugin = {
+    name: 'resolve-empty',
+    setup(build) {
+        // Intercept 'path' and 'os' and redirect them to a virtual module
+        build.onResolve({ filter: /^(path|os)$/ }, args => ({
+            path: args.path,
+            namespace: 'empty-ns',
+        }));
+
+        // When esbuild tries to load the virtual module, give it an empty CJS module
+        build.onLoad({ filter: /.*/, namespace: 'empty-ns' }, () => ({
+            contents: 'module.exports = {}',
+            loader: 'js',
+        }));
+    },
+};
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -54,8 +72,7 @@ const context = await esbuild.context({
 		"@codemirror/view",
 		"@lezer/common",
 		"@lezer/highlight",
-		"@lezer/lr",
-		...builtins],
+		"@lezer/lr"],
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
@@ -63,7 +80,7 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: prod,
-	plugins: [copyPlugin]
+	plugins: [copyPlugin, resolveEmptyPlugin]
 });
 
 if (prod) {

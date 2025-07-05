@@ -478,29 +478,11 @@ var f,
 							? [f, p(n)]
 							: null == f
 								? (function () {
-										try {
-											var r;
-											return (
-												e && (r = e.randomBytes)
-													? (r = r(o))
-													: ((r = new Uint8Array(o)),
-														(
-															t.crypto ||
-															t.msCrypto
-														).getRandomValues(r)),
-												p(r)
-											);
-										} catch (r) {
-											var u = t.navigator,
-												i = u && u.plugins;
-											return [
-												+new Date(),
-												t,
-												i,
-												t.screen,
-												p(n),
-											];
-										}
+										var r = new Uint8Array(o);
+										(
+											t.crypto || t.msCrypto
+										).getRandomValues(r);
+										return p(r);
 									})()
 								: f,
 						3,
@@ -584,9 +566,6 @@ var f,
 		}
 		if ((h(r.random(), n), f.exports)) {
 			f.exports = x;
-			try {
-				e = require("crypto");
-			} catch (t) {}
 		} else r["seed" + u] = x;
 	})("undefined" != typeof self ? self : t, [], Math);
 var c = n.exports,
