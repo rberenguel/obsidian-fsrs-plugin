@@ -80,6 +80,7 @@ export default class FsrsPlugin extends Plugin {
 			id: "set-note-as-quiz-frontmatter",
 			name: "Mark as quiz / Add card marker",
 			hotkeys: [{ modifiers: ["Alt"], key: "Q" }],
+			icon: "brain",
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				const file = view.file;
 				if (!file) return;
