@@ -1,14 +1,15 @@
+// In src/ui/CalendarView.ts
+
 import { ItemView, WorkspaceLeaf, moment } from "obsidian";
 import type FsrsPlugin from "../main";
 import {
 	Calendar,
 	configureGlobalMomentLocale,
 	ICalendarSource,
-	IDayMetadata,
 } from "obsidian-calendar-ui";
 import { dailyReset } from "src/logic/state";
-import { getAllReviewItems } from "src/logic/scheduler";
-import { PluginContext } from "src/types";
+import { getAllReviewItems, getReviewItemsForDay } from "src/logic/scheduler"; // Modified import
+import { PluginContext, QuizItem } from "src/types";
 
 export const FSRS_CALENDAR_VIEW_TYPE = "fsrs-calendar-view";
 
@@ -16,6 +17,9 @@ export class CalendarView extends ItemView {
 	private context: PluginContext;
 	private calendar: Calendar | null = null;
 	private isRedrawing = false;
+	private calendarContainer: HTMLDivElement;
+	private listContainer: HTMLDivElement;
+	private selectedDay: moment.Moment | null = null;
 
 	constructor(leaf: WorkspaceLeaf, context: PluginContext) {
 		super(leaf);
@@ -25,35 +29,38 @@ export class CalendarView extends ItemView {
 	getViewType(): string {
 		return FSRS_CALENDAR_VIEW_TYPE;
 	}
-
 	getDisplayText(): string {
 		return "FSRS Calendar";
 	}
-
 	getIcon(): string {
 		return "calendar-days";
 	}
 
+	protected async onOpen(): Promise<void> {
+		this.contentEl.empty();
+		this.contentEl.style.padding = "12px";
+		this.calendarContainer = this.contentEl.createDiv();
+		this.listContainer = this.contentEl.createDiv({
+			cls: "fsrs-daily-due-list",
+		});
+		await this.redraw();
+	}
+
+	// In src/ui/CalendarView.ts
+
 	public async redraw(): Promise<void> {
 		if (this.isRedrawing) return;
 		this.isRedrawing = true;
-
 		try {
-			if (this.calendar) {
-				this.calendar.$destroy();
-			}
-			this.contentEl.empty();
-			this.contentEl.style.padding = "12px";
-
+			if (this.calendar) this.calendar.$destroy();
+			this.calendarContainer.empty();
 			configureGlobalMomentLocale(window.moment.locale(), "monday");
-
 			const dueDates = await this.getAllDueDates();
 
 			const calendarSource: ICalendarSource = {
 				getDailyMetadata: async (date: moment.Moment) => {
 					const dateStr = date.format("YYYY-MM-DD");
 					const counts = dueDates[dateStr];
-
 					if (!counts) return { classes: [] };
 					const overdueDots = Array.from(
 						{ length: counts.overdue || 0 },
@@ -87,23 +94,20 @@ export class CalendarView extends ItemView {
 							className: "dot-green",
 						}),
 					);
-
 					const allDots = [
 						...overdueDots,
 						...todayDots,
 						...futureDots,
 						...newDots,
 					];
-					const totalCount = allDots.length;
-
-					if (totalCount > 0) {
+					if (allDots.length > 0) {
 						return {
 							dots: allDots,
 							dataAttributes: {
-								"fsrs-due-new": String(counts.new || 0),
 								"fsrs-due-overdue": String(counts.overdue || 0),
 								"fsrs-due-today": String(counts.today || 0),
 								"fsrs-due-future": String(counts.future || 0),
+								"fsrs-due-new": String(counts.new || 0),
 							},
 						};
 					}
@@ -113,16 +117,27 @@ export class CalendarView extends ItemView {
 			};
 
 			this.calendar = new Calendar({
-				target: this.contentEl,
+				target: this.calendarContainer,
 				props: {
 					localeData: window.moment().localeData(),
 					sources: [calendarSource],
 					showWeekNums: true,
+					onClickDay: (date: moment.Moment) => {
+						if (
+							this.selectedDay &&
+							this.selectedDay.isSame(date, "day")
+						) {
+							this.listContainer.empty();
+							this.selectedDay = null;
+						} else {
+							this.renderDueDateTable(date);
+							this.selectedDay = date;
+						}
+					},
 					onHoverDay: (
 						date: moment.Moment,
 						targetEl: HTMLElement,
 					) => {
-						// Build the detailed tooltip string
 						const newCount = parseInt(
 							targetEl.getAttribute("fsrs-due-new") || "0",
 						);
@@ -135,16 +150,12 @@ export class CalendarView extends ItemView {
 						const futureCount = parseInt(
 							targetEl.getAttribute("fsrs-due-future") || "0",
 						);
-
-						// "Due" cards are red (overdue) and grey (future scheduled)
 						const dueCount = overdueCount + futureCount;
-
 						const parts: string[] = [];
-						if (newCount > 0) {
+						if (newCount > 0)
 							parts.push(
 								`${newCount} new card${newCount > 1 ? "s" : ""}`,
 							);
-						}
 						if (dueCount > 0) {
 							parts.push(
 								`${dueCount} card${dueCount > 1 ? "s" : ""} due`,
@@ -155,7 +166,6 @@ export class CalendarView extends ItemView {
 								`${laterTodayCount} card${laterTodayCount > 1 ? "s" : ""} due later`,
 							);
 						}
-
 						if (parts.length > 0) {
 							targetEl.setAttribute(
 								"aria-label",
@@ -170,8 +180,83 @@ export class CalendarView extends ItemView {
 		}
 	}
 
-	protected async onOpen(): Promise<void> {
-		await this.redraw();
+	private async renderDueDateTable(date: moment.Moment) {
+		this.listContainer.empty();
+		const items = await getReviewItemsForDay(this.context, date);
+
+		if (items.length === 0) return;
+
+		this.listContainer.createEl("h4", {
+			text: `Due for ${date.format("MMMM Do")}`,
+		});
+		const table = this.listContainer.createEl("table", {
+			cls: "fsrs-due-table",
+		});
+
+		// Add table headers
+		const thead = table.createTHead();
+		const headerRow = thead.createEl("tr");
+		headerRow.createEl("th", { text: "Question" });
+		headerRow.createEl("th", { text: "File" });
+		headerRow.createEl("th", { text: "Time" });
+
+		const tbody = table.createTBody();
+
+		for (const item of items) {
+			const row = tbody.createEl("tr");
+			const fullQuestionText = item.isCloze
+				? item.rawQuestionText || ""
+				: item.question;
+			const questionCell = row.createEl("td", {
+				cls: "fsrs-due-table-question",
+				title: fullQuestionText,
+			});
+			let questionText = item.isCloze
+				? "Cloze: " +
+					(item.rawQuestionText || "").substring(0, 30) +
+					"..."
+				: item.question.length > 80
+					? item.question.substring(0, 30) + "..."
+					: item.question;
+			questionText = questionText
+				.replace(/\*/g, "")
+				.replace(/#/g, "")
+				.replace(/_/g, "");
+			const link = questionCell.createEl("a", {
+				text: questionText,
+				href: "#",
+			});
+
+			link.onclick = (ev) => {
+				ev.preventDefault();
+				const linktext = item.isCloze
+					? item.file.path
+					: `${item.file.path}#^${item.id}`;
+				this.app.workspace.openLinkText(
+					linktext,
+					item.file.path,
+					false,
+				);
+			};
+
+			const fileCell = row.createEl("td", { cls: "fsrs-due-table-file" });
+			const fileLink = fileCell.createEl("a", {
+				text: item.file.basename.replace(".md", ""),
+				href: "#",
+			});
+			fileLink.onclick = (ev) => {
+				ev.preventDefault();
+				this.app.workspace.openLinkText(
+					item.file.path,
+					item.file.path,
+					false,
+				);
+			};
+
+			// Add the due time, formatted to 24h
+			const dueTime = window.moment(item.card.due).format("HH:mm");
+			row.createEl("td", { text: dueTime, cls: "fsrs-due-table-time" });
+		}
 	}
 
 	protected async onClose(): Promise<void> {
@@ -180,7 +265,6 @@ export class CalendarView extends ItemView {
 			this.calendar = null;
 		}
 	}
-
 	private async getAllDueDates(): Promise<
 		Record<
 			string,

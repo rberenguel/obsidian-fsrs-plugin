@@ -160,3 +160,35 @@ export async function getDueReviewItems(
 	// The final queue is all due reviews plus the capped number of new cards
 	return [...dueReviews, ...newCardsForSession];
 }
+
+export async function getReviewItemsForDay(
+	context: PluginContext,
+	day: moment.Moment,
+): Promise<QuizItem[]> {
+	const allItems = await getAllReviewItems(context);
+	const dayStart = day.clone().startOf("day");
+	const itemsForDay: QuizItem[] = [];
+
+	// Only include cards in a review state
+	const scheduledItems = allItems.filter(
+		(item) => item.card.state && item.card.state !== "new",
+	);
+
+	for (const item of scheduledItems) {
+		const dueDate = window.moment(item.card.due);
+		if (!dueDate.isValid()) continue;
+
+		// For today, include anything that is overdue
+		if (
+			day.isSame(window.moment().startOf("day")) &&
+			dueDate.isSameOrBefore(day)
+		) {
+			itemsForDay.push(item);
+		}
+		// For other days, only include cards scheduled exactly for that day
+		else if (dueDate.isSame(dayStart, "day")) {
+			itemsForDay.push(item);
+		}
+	}
+	return itemsForDay;
+}

@@ -34,25 +34,33 @@ const copyPlugin = {
     });
   },
 };
-
-// For some reason CalendarView is pulling path and os, which I don't want on mobile.
-const resolveEmptyPlugin = {
-    name: 'resolve-empty',
+// This plugin now provides a more specific fake for 'os'
+const resolveNodeBuiltinsPlugin = {
+    name: 'resolve-node-builtins',
     setup(build) {
-        // Intercept 'path' and 'os' and redirect them to a virtual module
+        // Intercept 'path' and 'os' and redirect them to a virtual namespace
         build.onResolve({ filter: /^(path|os)$/ }, args => ({
             path: args.path,
-            namespace: 'empty-ns',
+            namespace: 'node-builtins-ns',
         }));
 
-        // When esbuild tries to load the virtual module, give it an empty CJS module
-        build.onLoad({ filter: /.*/, namespace: 'empty-ns' }, () => ({
-            contents: 'module.exports = {}',
-            loader: 'js',
-        }));
+        // Provide specific fakes for each module
+        build.onLoad({ filter: /.*/, namespace: 'node-builtins-ns' }, (args) => {
+            let contents = '{}';
+            if (args.path === 'os') {
+                // Provide a fake platform function
+                contents = 'module.exports = { platform: () => "browser" };';
+            } else {
+                // 'path' can be an empty object
+                contents = 'module.exports = {};';
+            }
+            return {
+                contents: contents,
+                loader: 'js',
+            };
+        });
     },
 };
-
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -80,7 +88,7 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: prod,
-	plugins: [copyPlugin, resolveEmptyPlugin]
+	plugins: [copyPlugin, resolveNodeBuiltinsPlugin]
 });
 
 if (prod) {

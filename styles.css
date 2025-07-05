@@ -278,6 +278,44 @@
 	color: var(--text-muted);
 }
 
+/* Styling for the due items table in the calendar view */
+.fsrs-due-table {
+	width: 100%;
+	margin-top: 1em;
+	border-collapse: collapse;
+	font-size: 80%;
+}
+
+.fsrs-due-table th,
+.fsrs-due-table td {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	text-align: left;
+}
+
+.fsrs-due-table th {
+	font-weight: bold;
+	background-color: var(--background-secondary);
+}
+
+.fsrs-due-table tr:nth-child(even) {
+	background-color: var(--background-primary-alt);
+}
+
+.fsrs-due-table a {
+	text-decoration: none;
+	color: var(--text-normal);
+}
+
+.fsrs-due-table a:hover {
+	text-decoration: underline;
+	color: var(--text-accent);
+}
+
+.fsrs-due-table-question {
+	word-break: break-all;
+}
+
 @media (max-width: 768px) {
 	.modal.fsrs-quiz-modal {
 		max-width: 95vw;
