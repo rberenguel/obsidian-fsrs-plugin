@@ -162,6 +162,8 @@ A.
 			body: mockBody,
 			schedules: mockSchedules,
 		});
+		const randomSpy = vi.spyOn(Math, "random");
+		randomSpy.mockReturnValueOnce(0.1).mockReturnValueOnce(0.9);
 
 		// Act
 		const dueItems = await getDueReviewItems(mockContext);
@@ -170,11 +172,11 @@ A.
 
 		// Assert
 		expect(newOrder.length).toBe(3);
-		// It's technically possible for a shuffle to result in the same order,
-		// but with 3+ items it's unlikely. This test proves the shuffle logic runs.
-		// For a more robust test, you could mock Math.random, but this is often sufficient.
+		// The test is now deterministic and will always pass
 		expect(newOrder).not.toEqual(originalOrder);
-		// Sort both arrays to compare their contents regardless of order
-		expect(newOrder.sort()).toEqual(originalOrder.sort());
+		expect(newOrder).toEqual(["n3", "n2", "n1"]);
+
+		// Restore the original Math.random functionality
+		randomSpy.mockRestore();
 	});
 });
