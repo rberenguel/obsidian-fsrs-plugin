@@ -423,7 +423,7 @@ export default class FsrsPlugin extends Plugin {
 			);
 		} else {
 			// If it doesn't exist, create it with clean spacing.
-			const separator = `\n`;
+			const separator = `\n\n`;
 			const newBlock = `\`\`\`${FSRS_DATA_CODE_BLOCK_TYPE}\n${yamlString}\`\`\``;
 			newFileContent = `${body.trim()}${separator}${newBlock}`;
 		}

@@ -180,17 +180,12 @@ export class QuizModal extends Modal {
 			cls: "quiz-question markdown-reading-view",
 		});
 
-		// IMPORTANT: Render the original question text. The cleaning happens in CSS/rendering.
-		let questionToRender = this.currentItem.isCloze
-			? this.currentItem.rawQuestionText!
-			: this.currentItem.question;
-
-		// Remove the marker *only for display* if it's not a cloze card
-		if (!this.currentItem.isCloze) {
-			questionToRender = questionToRender
-				.replace(/\s+\?srs\s+\^[a-zA-Z0-9]+$/, "")
-				.trim();
-		}
+		// The question is now always the correct context (either Q&A or the cloze line)
+		// We still clean the marker for display purposes.
+		let questionToRender = this.question.replace(
+			/\s+\?srs\s+\^[a-zA-Z0-9]+/gm,
+			"",
+		);
 
 		await MarkdownRenderer.render(
 			this.app,

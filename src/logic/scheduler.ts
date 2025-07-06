@@ -26,44 +26,45 @@ export async function getAllReviewItems(
 	for (const noteFile of quizNotes) {
 		const { body, schedules } = await processFile(context.app, noteFile);
 		const lines = body.split("\n");
-		let currentQuestion = "";
-		let currentAnswer = "";
-		let inAnswer = false;
-		let currentBlockId: string | undefined = undefined;
+		let currentQandA: {
+			question: string;
+			answer: string;
+			blockId: string;
+		} | null = null;
+
+		const saveCurrentQandA = () => {
+			if (currentQandA) {
+				const card =
+					schedules[currentQandA.blockId] ||
+					(createEmptyCard(now) as Card);
+				allItems.push({
+					file: noteFile,
+					id: currentQandA.blockId,
+					card,
+					isCloze: false,
+					question: currentQandA.question.trim(),
+					answer: currentQandA.answer.trim(),
+					blockId: currentQandA.blockId,
+				});
+				currentQandA = null;
+			}
+		};
 
 		for (const line of lines) {
 			const srsMarkerIndex = line.indexOf(FSRS_CARD_MARKER);
+			const isClozeLine = line.includes("::");
 
 			if (srsMarkerIndex !== -1) {
-				// End any previous Q&A card
-				if (currentQuestion && currentBlockId) {
-					const card =
-						schedules[currentBlockId] ||
-						(createEmptyCard(now) as Card);
-					allItems.push({
-						file: noteFile,
-						id: currentBlockId,
-						card,
-						isCloze: false,
-						question: currentQuestion.trim(),
-						answer: currentAnswer.trim(),
-						blockId: currentBlockId,
-					});
-				}
+				// This line is a question. End any previous Q&A card.
+				saveCurrentQandA();
 
-				// Reset for the new line
-				inAnswer = false;
-				currentQuestion = "";
-				currentAnswer = "";
 				const blockIdMatch = line.match(/\^([a-zA-Z0-9]+)$/);
-				currentBlockId = blockIdMatch
+				const blockId = blockIdMatch
 					? blockIdMatch[1].trim()
 					: undefined;
 
-				// Check if the line is for a cloze or a Q&A
-				if (line.includes("::")) {
-					// It's a cloze line. The cloze parser below will handle it.
-					// We just needed to get the blockId from this line.
+				if (isClozeLine && blockId) {
+					// This is a cloze deletion line.
 					const clozeRegex = /::((?:.|\n)*?)::/g;
 					let match;
 					while ((match = clozeRegex.exec(line)) !== null) {
@@ -77,57 +78,29 @@ export async function getAllReviewItems(
 							id: clozeId,
 							card,
 							isCloze: true,
-							question: body, // Full body for context
+							question: line, // The question is the line itself
 							answer: clozeContent,
-							rawQuestionText: body,
-							blockId: currentBlockId,
+							rawQuestionText: line,
+							blockId: blockId,
 						});
 					}
-				} else {
-					// It's a standard Q&A question
-					if (currentBlockId) {
-						currentQuestion = line.substring(0, srsMarkerIndex);
-						inAnswer = true;
-					}
+				} else if (blockId) {
+					// This is a new Q&A question.
+					currentQandA = {
+						question: line.substring(0, srsMarkerIndex),
+						answer: "",
+						blockId: blockId,
+					};
 				}
-			} else if (inAnswer) {
-				if (line.trim() === FSRS_CARD_END_MARKER) {
-					if (currentQuestion && currentBlockId) {
-						const card =
-							schedules[currentBlockId] ||
-							(createEmptyCard(now) as Card);
-						allItems.push({
-							file: noteFile,
-							id: currentBlockId,
-							card,
-							isCloze: false,
-							question: currentQuestion.trim(),
-							answer: currentAnswer.trim(),
-							blockId: currentBlockId,
-						});
-					}
-					inAnswer = false;
-					currentQuestion = "";
-				} else {
-					currentAnswer += line + "\n";
-				}
+			} else if (line.trim() === FSRS_CARD_END_MARKER) {
+				saveCurrentQandA();
+			} else if (currentQandA) {
+				// This is part of an answer for a Q&A card.
+				currentQandA.answer += line + "\n";
 			}
 		}
-
-		// Save the last Q&A card if it exists
-		if (currentQuestion && currentBlockId) {
-			const card =
-				schedules[currentBlockId] || (createEmptyCard(now) as Card);
-			allItems.push({
-				file: noteFile,
-				id: currentBlockId,
-				card,
-				isCloze: false,
-				question: currentQuestion.trim(),
-				answer: currentAnswer.trim(),
-				blockId: currentBlockId,
-			});
-		}
+		// Save any lingering Q&A card at the end of the file.
+		saveCurrentQandA();
 	}
 	return allItems;
 }
