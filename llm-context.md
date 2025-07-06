@@ -1,48 +1,50 @@
-# Refactoring Plan
+# Plan for Pruning Orphaned Card Schedules
 
-## Goal
+## 1. Goal
 
-The plugin has grown in complexity, and the `main.ts` file is currently handling too many different responsibilities (plugin startup, state management, parsing, scheduling, UI decoration). The goal of this refactoring is to separate these concerns into different, focused files. This will make the codebase cleaner, easier to maintain, and simpler to extend in the future, following the Single Responsibility Principle.
+To automatically and efficiently remove schedule data from the `srs-data` code block when the corresponding card (Q&A or cloze) has been deleted from the note's body.
 
----
+## 2. Core Principle
 
-## Proposed File Structure
+The note's body is the single source of truth. If a card ID (block reference or cloze hash) doesn't exist in the body, its corresponding schedule entry is considered an orphan and should be deleted.
 
-The plan is to organize the code into logical directories:
+## 3. Proposed Implementation Strategy
 
-### 1. `main.ts` (The Lean Entry Point)
+The most efficient and user-transparent way to handle this is to piggyback the pruning process onto an existing file-write operation. The `updateCardDataInNote` function in `main.ts` is the ideal candidate, as it's already triggered every time a card is reviewed and its schedule needs to be saved.
 
-The `main.ts` file will be significantly slimmed down. Its only responsibility will be to initialize the plugin by:
--   Importing functionality from the new modules.
--   Registering commands, settings tabs, views, and editor extensions.
--   Wiring all the different components together.
+### Step 1: Create a Helper Function to Get All Valid Card IDs
 
-### 2. `ui/` Directory (User Interface Components)
+We will create a new, lightweight helper function, likely in `src/logic/scheduler.ts`, called `getAllCardIdsInFile`.
 
-This new directory will contain everything related to what the user sees and interacts with.
--   `ui/QuizModal.ts` (Existing)
--   `ui/CalendarView.ts` (Existing)
--   `ui/FsrsSettingsTab.ts` (Existing)
--   `ui/decorations.ts` **(New)**: This file will contain all the CodeMirror editor styling logic, including the `ViewPlugin` builder functions (for capsules and line shading) and their `Widget` classes.
+-   **Input**: `body: string` (the text content of the note).
+-   **Logic**: This function will reuse the parsing logic from `getAllReviewItems` but will be optimized to only extract IDs.
+    -   It will find all Q&A block IDs (`^...`).
+    -   It will find all cloze deletions (`::...::`), hash their content to get their IDs.
+-   **Output**: `Promise<Set<string>>` - A Set containing every valid card ID currently present in the note. Using a Set provides fast lookups.
 
-### 3. `logic/` Directory (Core Business Logic)
+### Step 2: Modify `updateCardDataInNote` in `main.ts`
 
-This new directory will contain the "brains" of the plugin.
--   `logic/scheduler.ts` **(New)**: Will handle the core logic of determining which cards to review. It will contain functions like `getDueReviewItems()` and `getAllReviewItems()`.
--   `logic/state.ts` **(New)**: Will be responsible for managing the persistent state for the new card queue, containing functions like `dailyReset()` and `incrementNewCardCount()`.
--   `logic/parser.ts` **(New)**: Will hold lower-level functions that read and interpret the content of a note file, such as `parseFileContent()`.
+This function will be augmented to perform the cleanup before it writes the updated schedule.
 
-### 4. `types.ts` (Centralized Type Definitions)
+The new sequence of operations will be:
 
-A new `types.ts` file will be created to consolidate all shared TypeScript interfaces. This provides a single source of truth for the data structures used throughout the plugin.
--   `FsrsPluginSettings`
--   `Card`
--   `QuizItem`
+1.  **Read File**: Read the entire current content of the note file.
+2.  **Get All Valid IDs**: Call the new `getAllCardIdsInFile` helper function with the note's body to get a `Set` of all valid card IDs.
+3.  **Parse Existing Schedules**: Parse the `srs-data` block from the file content to get the current `schedules` object.
+4.  **Filter and Prune**:
+    -   Create a new `prunedSchedules` object.
+    -   Iterate through the keys (card IDs) of the `schedules` object.
+    -   If a card ID from the `schedules` object exists in the `validCardIds` Set, copy that key-value pair to `prunedSchedules`.
+5.  **Update the Current Card**: Add the `updatedCard` data to the `prunedSchedules` object using its ID. This ensures the card just reviewed is always preserved.
+6.  **Write Back**: Serialize the clean `prunedSchedules` object to YAML and write it back to the file, replacing the old `srs-data` block.
 
----
+## 4. Why This Approach?
 
-## Benefits of This Approach
+-   **Efficiency**: It avoids adding extra file read/write cycles by integrating the cleanup into an existing I/O operation. The plugin only writes to the file when it was already going to.
+-   **Automatic & Seamless**: The user does not need to run a manual command. The data stays clean as a natural side effect of using the plugin.
+-   **Robustness**: By re-calculating all valid IDs from the source text every time, we ensure that the pruning is always accurate and not dependent on a potentially stale cache.
+-   **Low Risk**: The logic operates on a new `prunedSchedules` object, only replacing the file content at the very end with a known-good, clean version of the data.
 
--   **Clarity**: It will be easy to know exactly where to look when changing a specific piece of functionality.
--   **Maintainability**: Smaller, focused files are much simpler to debug and manage.
--   **Scalability**: Adding new features will be a cleaner process, often involving a new, self-contained file rather than increasing the complexity of existing ones.
+## 5. (Optional) Add a Manual Command
+
+For completeness, we could also add a user-facing command like "FSRS: Prune orphaned cards in the current note". This command would essentially run the same logic as outlined above but would be triggered manually by the user. This is a lower priority but could be useful for users who do a lot of refactoring without reviewing.

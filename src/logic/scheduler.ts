@@ -5,6 +5,7 @@ import { FSRS_CARD_MARKER, FSRS_CARD_END_MARKER } from "./consts";
 import { FsrsPluginSettings, DEFAULT_SETTINGS, QuizItem, Card } from "../types";
 import { dailyReset } from "./state";
 import { processFile } from "./parser";
+import { hash } from "./parser";
 
 export async function getQuizNotes(context: PluginContext): Promise<TFile[]> {
 	const allFiles = context.app.vault.getMarkdownFiles();
@@ -24,17 +25,20 @@ export async function getAllReviewItems(
 
 	for (const noteFile of quizNotes) {
 		const { body, schedules } = await processFile(context.app, noteFile);
-
 		const lines = body.split("\n");
 		let currentQuestion = "";
 		let currentAnswer = "";
 		let currentBlockId = "";
 		let inAnswer = false;
 
+		// Standard Q&A card parsing
 		for (const line of lines) {
 			const srsMarkerIndex = line.indexOf(FSRS_CARD_MARKER);
+			const isClozeLine = line.includes("::");
 
 			if (srsMarkerIndex !== -1) {
+				// This line contains a question marker.
+				// First, save any pending Q&A card.
 				if (currentQuestion && currentBlockId) {
 					const card =
 						schedules[currentBlockId] ||
@@ -49,11 +53,18 @@ export async function getAllReviewItems(
 					});
 				}
 
-				currentQuestion = line.substring(0, srsMarkerIndex);
-				const blockIdMatch = line.match(/\^([a-zA-Z0-9]+)$/);
-				currentBlockId = blockIdMatch ? blockIdMatch[1].trim() : "";
-				currentAnswer = "";
-				inAnswer = true;
+				if (isClozeLine) {
+					// It's a cloze line. Reset Q&A state; the cloze parser will handle it.
+					inAnswer = false;
+					currentQuestion = "";
+				} else {
+					// It's a new Q&A question.
+					currentQuestion = line.substring(0, srsMarkerIndex);
+					const blockIdMatch = line.match(/\^([a-zA-Z0-9]+)$/);
+					currentBlockId = blockIdMatch ? blockIdMatch[1].trim() : "";
+					currentAnswer = "";
+					inAnswer = true;
+				}
 			} else if (inAnswer) {
 				if (line.trim() === FSRS_CARD_END_MARKER) {
 					if (currentQuestion && currentBlockId) {
@@ -69,16 +80,15 @@ export async function getAllReviewItems(
 							answer: currentAnswer.trim(),
 						});
 					}
-					currentQuestion = "";
-					currentAnswer = "";
-					currentBlockId = "";
 					inAnswer = false;
+					currentQuestion = "";
 				} else {
 					currentAnswer += line + "\n";
 				}
 			}
 		}
 
+		// After the loop, save any last pending Q&A card.
 		if (currentQuestion && currentBlockId) {
 			const card =
 				schedules[currentBlockId] || (createEmptyCard(now) as Card);
@@ -92,12 +102,12 @@ export async function getAllReviewItems(
 			});
 		}
 
-		// Cloze card parsing remains unchanged
-		const clozeRegex = /\{\{([a-zA-Z0-9_-]+)::((?:.|\n)*?)\}\}/g;
-		let match;
+		// Cloze card parsing (this part remains unchanged)
+		const clozeRegex = /::((?:.|\n)*?)::/g;
+		let match: RegExpExecArray | null;
 		while ((match = clozeRegex.exec(body)) !== null) {
-			const clozeId = match[1];
-			const clozeContent = match[2];
+			const clozeContent = match[1];
+			const clozeId = await hash(clozeContent);
 			const card = schedules[clozeId] || (createEmptyCard(now) as Card);
 			allItems.push({
 				file: noteFile,

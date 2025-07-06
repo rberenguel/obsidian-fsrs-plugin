@@ -7,6 +7,14 @@ import {
 	FSRS_CARD_END_MARKER,
 } from "./consts";
 
+export async function hash(text: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(text);
+	const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Parses the raw text content of a file.
  * This is a PURE function, making it easy to test.

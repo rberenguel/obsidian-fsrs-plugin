@@ -90,6 +90,17 @@
 
 /* TODO some styles are no longer used */
 
+.fsrs-srs-capsule {
+	display: inline-flex; /* Allows children to sit side-by-side */
+	align-items: center; /* Vertically align icon and text if their heights differ */
+	border-radius: 0.5em; /* Make it pill-shaped (adjust as needed) */
+	overflow: hidden; /* Ensures child backgrounds don't bleed past rounded corners */
+	font-style: normal; /* Override previous italic if any */
+	line-height: 1.3; /* Adjust for better vertical centering with padding */
+	margin-left: 0.5em;
+	margin-right: 0.5em;
+}
+
 .fsrs-cloze-capsule {
 	display: inline-flex; /* Allows children to sit side-by-side */
 	align-items: center; /* Vertically align icon and text if their heights differ */
@@ -102,7 +113,7 @@
 }
 
 /* Icon part of the capsule */
-.fsrs-cloze-icon-part {
+.fsrs-srs-capsule .fsrs-cloze-icon-part {
 	background-color: #666; /* Example: Theme accent for icon background */
 	color: black; /* Text color that contrasts with icon background */
 	padding: 0.4em 0.5em 0.2em 0.5em;
@@ -110,17 +121,29 @@
 	font-size: 50%;
 }
 
+.fsrs-cloze-capsule .fsrs-cloze-icon-part {
+	background-color: #666; /* Example: Theme accent for icon background */
+	color: black; /* Text color that contrasts with icon background */
+	padding: 0.4em 0.5em 0.2em 0.5em;
+	/* border-radius: 1em 0 0 1em; /* Round left side - handled by parent usually */
+}
+
 .fsrs-cloze-text-part.has-icon {
 	padding: 0.4em 0.5em 0.2em 0.5em;
 }
 
 /* Text part of the capsule */
-.fsrs-cloze-text-part {
+.fsrs-srs-capsule .fsrs-cloze-text-part {
 	background-color: #999; /* Example: Secondary background for text */
 	color: black;
-	padding: 0.2em 0.6em; /* Adjust padding for text */
+	padding: 0.4em 0.5em 0.2em 0.5em;
 	font-size: 50%;
-	/* border-radius: 0 1em 1em 0; /* Round right side - handled by parent usually */
+}
+
+.fsrs-cloze-capsule .fsrs-cloze-text-part {
+	background-color: #999; /* Example: Secondary background for text */
+	color: black;
+	padding: 0.3em 0.5em 0.3em 0.5em;
 }
 
 /* Remove underlines from links if they appear inside (Obsidian specific) */

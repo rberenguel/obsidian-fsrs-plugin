@@ -78,44 +78,64 @@ export default class FsrsPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: "set-note-as-quiz-frontmatter",
-			name: "Mark as quiz / Add card marker",
-			hotkeys: [{ modifiers: ["Alt"], key: "Q" }],
-			icon: "brain",
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const file = view.file;
-				if (!file) return;
+			id: "mark-as-quiz-cloze",
+			name: "Omni command",
+			hotkeys: [{ modifiers: ["Alt"], key: "q" }],
+			icon: "brain-circuit",
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				if (!view.file) return;
 
-				const fileCache = this.app.metadataCache.getFileCache(file);
+				const fileCache = this.app.metadataCache.getFileCache(
+					view.file,
+				);
 				const quizKey = this.settings.fsrsFrontmatterKey || "fsrs";
+				const isQuizNote = fileCache?.frontmatter?.[quizKey] === true;
 
-				if (
-					fileCache?.frontmatter &&
-					fileCache.frontmatter[quizKey] === true
-				) {
-					const cursor = editor.getCursor();
-					const line = editor.getLine(cursor.line);
+				if (!isQuizNote) {
+					await this.app.fileManager.processFrontMatter(
+						view.file,
+						(fm) => {
+							fm[quizKey] = true;
+						},
+					);
+					new Notice(
+						`Marked "${view.file.basename}" as a quiz note.`,
+					);
+				}
 
-					if (line.trim() === "") {
-						// Line is empty, insert the end marker.
-						editor.setLine(cursor.line, FSRS_CARD_END_MARKER);
-					} else {
-						// Line has content, add the question marker.
-						const newId = `^${Date.now().toString(36)}${Math.random()
-							.toString(36)
-							.substring(2, 5)}`;
-						const newLine = `${line.trim()} ${FSRS_CARD_MARKER} ${newId}`;
-						editor.setLine(cursor.line, newLine);
-						editor.setCursor({
-							line: cursor.line,
-							ch: newLine.length,
-						});
+				const selection = editor.getSelection();
+				const cursor = editor.getCursor();
+				const line = editor.getLine(cursor.line);
+
+				if (selection) {
+					// Text is selected, wrap it as a cloze
+					const clozeText = `::${selection}::`;
+					editor.replaceSelection(clozeText);
+
+					// Add the question marker if it's not already there
+					const updatedLine = editor.getLine(cursor.line);
+					if (!updatedLine.includes(FSRS_CARD_MARKER)) {
+						editor.setLine(
+							cursor.line,
+							`${updatedLine} ${FSRS_CARD_MARKER}`,
+						);
 					}
-				} else {
-					this.app.fileManager.processFrontMatter(file, (fm: any) => {
-						fm[quizKey] = true;
-						new Notice(`Marked "${file.basename}" as a quiz.`);
+					// Move cursor to the end of the line
+					editor.setCursor({
+						line: cursor.line,
+						ch: editor.getLine(cursor.line).length,
 					});
+				} else if (line.trim() === "") {
+					// Line is empty, insert the end marker
+					editor.setLine(cursor.line, FSRS_CARD_END_MARKER);
+				} else if (!line.includes(FSRS_CARD_MARKER)) {
+					// Line has content but is not a question, add the marker
+					const newId = `^${Date.now().toString(36)}${Math.random()
+						.toString(36)
+						.substring(2, 5)}`;
+					const newLine = `${line.trim()} ${FSRS_CARD_MARKER} ${newId}`;
+					editor.setLine(cursor.line, newLine);
+					editor.setCursor({ line: cursor.line, ch: newLine.length });
 				}
 			},
 		});

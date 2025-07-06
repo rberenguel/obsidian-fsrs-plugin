@@ -12,6 +12,14 @@ import type { Card, PluginContext, QuizItem } from "../types";
 import { State } from "../libs/fsrs";
 import { incrementNewCardCount } from "src/logic/state";
 
+async function hash(text: string): Promise<string> {
+	const encoder = new TextEncoder();
+	const data = encoder.encode(text);
+	const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+	const hashArray = Array.from(new Uint8Array(hashBuffer));
+	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export enum Rating {
 	Again = 1,
 	Hard = 2,
@@ -47,8 +55,6 @@ export class QuizModal extends Modal {
 		this.currentItem = queue[0];
 		this.totalInSession = totalInSession;
 
-		// Note: The rest of the original constructor logic that sets this.question, this.answer etc.
-		// should be moved here and use this.currentItem instead of this.item.
 		this.question = this.currentItem.question;
 		this.answer = this.currentItem.answer;
 	}
@@ -65,9 +71,7 @@ export class QuizModal extends Modal {
 			if (node.nodeValue === null) continue;
 
 			const textContent = node.nodeValue;
-			// Regex for clozes that are NOT the active one.
-			const clozeRegex = /\{\{([a-zA-Z0-9_-]+)::((?:.|\n)*?)\}\}/g;
-
+			const clozeRegex = /::((?:.|\n)*?)::/g;
 			let lastIndex = 0;
 			const fragment = document.createDocumentFragment();
 			let matchFoundInTextNode = false;
@@ -75,16 +79,7 @@ export class QuizModal extends Modal {
 
 			while ((match = clozeRegex.exec(textContent)) !== null) {
 				matchFoundInTextNode = true;
-				const clozeId = match[1];
-				// Do not render the active cloze's content as a capsule
-				if (clozeId === this.currentItem.id) {
-					// Add the raw placeholder back as text
-					fragment.appendChild(document.createTextNode(match[0]));
-					lastIndex = clozeRegex.lastIndex;
-					continue;
-				}
-
-				const contentToRender = match[2];
+				const clozeContent = match[1];
 
 				if (match.index > lastIndex) {
 					fragment.appendChild(
@@ -94,19 +89,25 @@ export class QuizModal extends Modal {
 					);
 				}
 
-				const capsule = document.createElement("span");
-				capsule.addClass("fsrs-cloze-capsule");
-
-				const iconPart = capsule.createSpan({
-					cls: "fsrs-cloze-icon-part",
-				});
-				iconPart.setText("?");
-
-				const textPart = capsule.createSpan({
-					cls: "fsrs-cloze-text-part",
-				});
-				textPart.setText(contentToRender);
-				fragment.appendChild(capsule);
+				if (clozeContent === this.currentItem.answer) {
+					// This is the active cloze, replace with placeholder
+					const placeholder = document.createElement("span");
+					placeholder.setText("[...]");
+					fragment.appendChild(placeholder);
+				} else {
+					// This is an inactive cloze, render as a capsule
+					const capsule = document.createElement("span");
+					capsule.addClass("fsrs-cloze-capsule");
+					const iconPart = capsule.createSpan({
+						cls: "fsrs-cloze-icon-part",
+					});
+					iconPart.setText("?");
+					const textPart = capsule.createSpan({
+						cls: "fsrs-cloze-text-part",
+					});
+					textPart.setText(clozeContent);
+					fragment.appendChild(capsule);
+				}
 				lastIndex = clozeRegex.lastIndex;
 			}
 
@@ -132,57 +133,35 @@ export class QuizModal extends Modal {
 			);
 		}
 	}
-	async navigateToSource() {
-		this.close(); // Close the modal before navigating
 
-		const file = this.currentItem.file;
-		// The 'id' for a Q&A card is its block reference
-		const blockId = this.currentItem.id;
-
-		// Construct the link text and open it
-		const linktext = `${file.path}#^${blockId}`;
-		await this.app.workspace.openLinkText(linktext, file.path, false);
-	}
 	async onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("quiz-modal-content");
+
 		const headerContainer = contentEl.createDiv({
 			cls: "quiz-header-container",
 		});
 		const leftContainer = headerContainer.createDiv({
 			cls: "quiz-header-left",
 		});
-		// Timer bar
 		const timerContainer = headerContainer.createDiv({
 			cls: "quiz-timer-container",
 		});
 		timerContainer.createDiv({ cls: "quiz-timer-bar" });
+
 		if (!this.currentItem.isCloze) {
 			const linkEl = leftContainer.createEl("a", {
 				cls: "quiz-link-icon",
 			});
 			linkEl.setAttribute("aria-label", "Go to source");
 			setIcon(linkEl, "link");
-			linkEl.onclick = () => {
-				this.navigateToSource();
-			};
+			linkEl.onclick = () => this.navigateToSource();
 		}
-		// Counter text
+
 		const counterEl = headerContainer.createDiv({ cls: "quiz-counter" });
 		const currentCardNumber = this.totalInSession - this.queue.length + 1;
 		counterEl.setText(`${currentCardNumber} / ${this.totalInSession}`);
-		// Prepare question text for display
-		let questionToRender = this.question;
-		if (this.currentItem.isCloze) {
-			const activeClozeRegex = new RegExp(
-				`\\{\\{${this.currentItem.id}::((?:.|\\n)*?)\\}\\}`,
-			);
-			questionToRender = this.question.replace(
-				activeClozeRegex,
-				" [...] ",
-			);
-		}
 
 		const questionContainer = contentEl.createDiv({
 			cls: "quiz-question-container",
@@ -191,26 +170,35 @@ export class QuizModal extends Modal {
 			cls: "quiz-question markdown-reading-view",
 		});
 
+		// Render the original, unmodified question
 		await MarkdownRenderer.render(
 			this.app,
-			questionToRender,
+			this.question,
 			questionDiv,
 			this.currentItem.file.path,
 			this.plugin,
 		);
 
-		// Post-process to render non-active clozes as capsules
+		// If it's a cloze, transform the rendered elements
 		if (this.currentItem.isCloze) {
 			this.transformClozesInElement(questionDiv);
 		}
 
 		this.isAnswerShown = false;
 		this.setupShowAnswerInteraction(questionContainer);
-
 		this.boundHandleKeyPress = this.handleKeyPress.bind(this);
 		this.modalEl.addEventListener("keydown", this.boundHandleKeyPress);
 		this.modalEl.tabIndex = -1;
 		this.modalEl.focus();
+	}
+	async navigateToSource() {
+		this.close();
+
+		const file = this.currentItem.file;
+		const blockId = this.currentItem.id;
+
+		const linktext = `${file.path}#^${blockId}`;
+		await this.app.workspace.openLinkText(linktext, file.path, false);
 	}
 
 	handleKeyPress(event: KeyboardEvent) {
@@ -349,7 +337,6 @@ export class QuizModal extends Modal {
 				this.currentItem.id,
 				updatedCard,
 			);
-			// If the card was new, increment the daily counter
 			if (wasNew) {
 				await incrementNewCardCount(this.context);
 			}
