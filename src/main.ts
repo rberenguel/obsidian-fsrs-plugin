@@ -9,6 +9,7 @@ import {
 	stringifyYaml,
 } from "obsidian";
 
+import { load as parseYaml } from "js-yaml";
 import { fsrs, createEmptyCard, FSRS } from "./libs/fsrs";
 import { QuizModal } from "./ui/QuizModal";
 import { FsrsSettingTab } from "./ui/FsrsSettingsTab";
@@ -24,7 +25,7 @@ import {
 	buildClozeViewPlugin,
 	buildSrsMarkerViewPlugin,
 } from "./ui/decorations";
-import { getDueReviewItems } from "./logic/scheduler";
+import { getDueReviewItems, getAllReviewItems } from "./logic/scheduler";
 import { processFile } from "./logic/parser";
 import {
 	FSRS_CARD_END_MARKER,
@@ -86,7 +87,7 @@ export default class FsrsPlugin extends Plugin {
 				if (!file) return;
 
 				const fileCache = this.app.metadataCache.getFileCache(file);
-				const quizKey = this.settings.quizFrontmatterKey || "quiz";
+				const quizKey = this.settings.fsrsFrontmatterKey || "fsrs";
 
 				if (
 					fileCache?.frontmatter &&
@@ -129,8 +130,8 @@ export default class FsrsPlugin extends Plugin {
 		this.registerMarkdownPostProcessor(
 			(element: HTMLElement, context: MarkdownPostProcessorContext) => {
 				const quizKey =
-					this.settings.quizFrontmatterKey ||
-					DEFAULT_SETTINGS.quizFrontmatterKey;
+					this.settings.fsrsFrontmatterKey ||
+					DEFAULT_SETTINGS.fsrsFrontmatterKey;
 				if (
 					!context.frontmatter ||
 					context.frontmatter[quizKey] !== true
@@ -212,9 +213,71 @@ export default class FsrsPlugin extends Plugin {
 				5 * 60 * 1000,
 			);
 			this.registerEvent(
-				this.app.metadataCache.on("changed", () =>
-					this.updateUIDisplays(),
+				this.app.metadataCache.on(
+					"changed",
+					async (file, data, cache) => {
+						const quizKey = this.settings.fsrsFrontmatterKey;
+						// Check if the file is marked as a quiz
+						if (
+							cache.frontmatter &&
+							cache.frontmatter[quizKey] === true
+						) {
+							const questionCount = (
+								await getAllReviewItems(this.getContext(), [
+									file,
+								])
+							).length;
+							// Update the frontmatter with the new count
+							this.app.fileManager.processFrontMatter(
+								file,
+								(fm) => {
+									fm["fsrs"] = questionCount;
+								},
+							);
+						}
+						this.updateUIDisplays();
+					},
 				),
+			);
+			this.registerEvent(
+				this.app.vault.on("modify", async (file) => {
+					if (file instanceof TFile) {
+						const content = await this.app.vault.read(file);
+
+						// Manually parse the frontmatter
+						const frontmatterMatch = content.match(
+							/^---\s*\n([\s\S]+?)\n---\s*\n/,
+						);
+						let frontmatter: any = {};
+						if (frontmatterMatch) {
+							try {
+								frontmatter = parseYaml(frontmatterMatch[1]);
+							} catch (e) {
+								// Ignore malformed YAML
+								return;
+							}
+						}
+
+						// Check if the file is a quiz file by looking for the 'fsrs' key
+						if (frontmatter && frontmatter.hasOwnProperty("fsrs")) {
+							const questionCount = (
+								await getAllReviewItems(this.getContext(), [
+									file,
+								])
+							).length;
+
+							// If the count in the frontmatter is different from the actual count, update it.
+							if (frontmatter.fsrs !== questionCount) {
+								await this.app.fileManager.processFrontMatter(
+									file,
+									(fm) => {
+										fm.fsrs = questionCount;
+									},
+								);
+							}
+						}
+					}
+				}),
 			);
 			this.registerEvent(
 				this.app.vault.on("delete", () => this.updateUIDisplays()),
@@ -285,7 +348,7 @@ export default class FsrsPlugin extends Plugin {
 
 		if (dueItems.length === 0) {
 			new Notice(
-				`No notes with frontmatter key "${this.settings.quizFrontmatterKey}: true" are due.`,
+				`No notes with frontmatter key "${this.settings.fsrsFrontmatterKey}: true" are due.`,
 			);
 			return;
 		}

@@ -27,7 +27,7 @@ export interface QuizItem {
 }
 
 export interface FsrsPluginSettings {
-	quizFrontmatterKey: string;
+	fsrsFrontmatterKey: string;
 	quizMarker: string;
 	ratingAgainKey: string;
 	ratingHardKey: string;
@@ -40,7 +40,7 @@ export interface FsrsPluginSettings {
 }
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
-	quizFrontmatterKey: "quiz",
+	fsrsFrontmatterKey: "fsrs",
 	quizMarker: "%%quiz%%",
 	ratingAgainKey: "a",
 	ratingHardKey: "r",

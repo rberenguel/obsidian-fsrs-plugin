@@ -17,16 +17,16 @@ export class FsrsSettingTab extends PluginSettingTab {
 		containerEl.createEl("h2", { text: "FSRS Quiz Plugin Settings" });
 
 		new Setting(containerEl)
-			.setName("Quiz frontmatter key")
+			.setName("FSRS frontmatter key")
 			.setDesc(
 				'The frontmatter key used to identify quiz notes (e.g., "quiz"). The value of this key in the frontmatter should be "true".',
 			)
 			.addText((text) =>
 				text
 					.setPlaceholder("Example: quiz")
-					.setValue(this.plugin.settings.quizFrontmatterKey)
+					.setValue(this.plugin.settings.fsrsFrontmatterKey)
 					.onChange(async (value) => {
-						this.plugin.settings.quizFrontmatterKey = value.trim();
+						this.plugin.settings.fsrsFrontmatterKey = value.trim();
 						await this.plugin.saveSettings();
 					}),
 			);

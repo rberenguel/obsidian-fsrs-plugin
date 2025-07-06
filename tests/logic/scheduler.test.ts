@@ -27,14 +27,12 @@ describe("Scheduler", () => {
 			app: {
 				vault: { getMarkdownFiles: () => [{ path: "test.md" }] },
 				metadataCache: {
-					getFileCache: () => ({ frontmatter: { quiz: true } }),
+					getFileCache: () => ({ frontmatter: { fsrs: 0 } }),
 				},
 			},
 			saveSettings: vi.fn(),
 		} as unknown as PluginContext;
 
-		// --- THE FIX ---
-		// Create a mock body with questions that match the schedules' keys (^dueCard1, etc.)
 		const mockBody = `
 This is a due question?srs ^dueCard1
 Answer.
@@ -60,7 +58,7 @@ Answer.
 		};
 
 		vi.mocked(processFile).mockResolvedValue({
-			body: mockBody, // Provide the body for parsing
+			body: mockBody,
 			schedules: mockSchedules,
 		});
 
@@ -75,8 +73,6 @@ Answer.
 
 		// Assert
 		expect(dailyReset).toHaveBeenCalledWith(mockContext);
-
-		// 1 due card + (5 limit - 3 reviewed = 2 new cards) = 3 total
 		expect(dueItems.length).toBe(3);
 		expect(dueCards.length).toBe(1);
 		expect(newCards.length).toBe(2);
@@ -91,7 +87,7 @@ Answer.
 			app: {
 				vault: { getMarkdownFiles: () => [{ path: "test.md" }] },
 				metadataCache: {
-					getFileCache: () => ({ frontmatter: { quiz: true } }),
+					getFileCache: () => ({ frontmatter: { fsrs: 0 } }),
 				},
 			},
 			saveSettings: vi.fn(),
@@ -123,10 +119,10 @@ Answer.
 		expect(dueItems.length).toBe(1); // Only the due card
 		expect(dueItems[0].id).toBe("dueCard1");
 	});
+
 	it("should shuffle new cards when the setting is enabled", async () => {
 		// Arrange
 		const mockContext = {
-			// Enable shuffling
 			settings: {
 				maxNewCardsPerDay: 5,
 				newCardsReviewedToday: 0,
@@ -135,7 +131,7 @@ Answer.
 			app: {
 				vault: { getMarkdownFiles: () => [{ path: "test.md" }] },
 				metadataCache: {
-					getFileCache: () => ({ frontmatter: { quiz: true } }),
+					getFileCache: () => ({ frontmatter: { fsrs: 0 } }),
 				},
 			},
 			saveSettings: vi.fn(),
@@ -171,12 +167,11 @@ A.
 		const newOrder = dueItems.map((item) => item.id);
 
 		// Assert
+		expect(dueItems.length).toBe(3);
 		expect(newOrder.length).toBe(3);
-		// The test is now deterministic and will always pass
 		expect(newOrder).not.toEqual(originalOrder);
 		expect(newOrder).toEqual(["n3", "n2", "n1"]);
 
-		// Restore the original Math.random functionality
 		randomSpy.mockRestore();
 	});
 });

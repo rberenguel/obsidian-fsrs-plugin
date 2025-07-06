@@ -8,17 +8,17 @@ import { processFile } from "./parser";
 
 export async function getQuizNotes(context: PluginContext): Promise<TFile[]> {
 	const allFiles = context.app.vault.getMarkdownFiles();
-	const quizKey = context.settings.quizFrontmatterKey || "quiz";
 	return allFiles.filter((file) => {
 		const fileCache = context.app.metadataCache.getFileCache(file);
-		return fileCache?.frontmatter?.[quizKey] === true;
+		return fileCache?.frontmatter?.hasOwnProperty("fsrs");
 	});
 }
 
 export async function getAllReviewItems(
 	context: PluginContext,
+	files?: TFile[],
 ): Promise<QuizItem[]> {
-	const quizNotes = await getQuizNotes(context);
+	const quizNotes = files || (await getQuizNotes(context));
 	const allItems: QuizItem[] = [];
 	const now = new Date();
 

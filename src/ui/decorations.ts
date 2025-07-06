@@ -62,8 +62,8 @@ export function buildClozeViewPlugin(plugin: FsrsPlugin) {
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
 				const quizKey =
-					this.settings.quizFrontmatterKey ||
-					DEFAULT_SETTINGS.quizFrontmatterKey;
+					this.settings.fsrsFrontmatterKey ||
+					DEFAULT_SETTINGS.fsrsFrontmatterKey;
 
 				const currentFile =
 					this.app.workspace.getActiveViewOfType(MarkdownView)?.file;
@@ -241,9 +241,8 @@ export function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
 				const quizKey =
-					plugin.settings.quizFrontmatterKey ||
-					DEFAULT_SETTINGS.quizFrontmatterKey;
-
+					plugin.settings.fsrsFrontmatterKey ||
+					DEFAULT_SETTINGS.fsrsFrontmatterKey;
 				const currentFile =
 					plugin.app.workspace.getActiveViewOfType(
 						MarkdownView,
