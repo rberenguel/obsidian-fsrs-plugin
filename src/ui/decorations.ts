@@ -67,7 +67,7 @@ export function buildClozeViewPlugin(plugin: FsrsPlugin) {
 				for (const { from, to } of view.visibleRanges) {
 					const text = view.state.doc.sliceString(from, to);
 					// Updated Regex
-					const clozeRegex = /::((?:.|\n)*?)::/g;
+					const clozeRegex = /::(.*?)?::/g;
 					let match;
 
 					while ((match = clozeRegex.exec(text)) !== null) {
