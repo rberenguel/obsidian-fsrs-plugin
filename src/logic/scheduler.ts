@@ -136,6 +136,7 @@ export async function getDueReviewItems(
 			}
 		}
 	}
+
 	if (context.settings.shuffleNewCards) {
 		for (let i = allNewCards.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
@@ -167,12 +168,13 @@ export async function getReviewItemsForDay(
 	);
 
 	for (const item of scheduledItems) {
+		
 		const dueDate = window.moment(item.card.due);
 		if (!dueDate.isValid()) continue;
 
 		// For today, include anything that is overdue
 		if (
-			day.isSame(window.moment().startOf("day")) &&
+			dayStart.isSame(window.moment().startOf("day")) &&
 			dueDate.isSameOrBefore(day)
 		) {
 			itemsForDay.push(item);

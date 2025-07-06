@@ -183,7 +183,6 @@ export class CalendarView extends ItemView {
 	private async renderDueDateTable(date: moment.Moment) {
 		this.listContainer.empty();
 		const items = await getReviewItemsForDay(this.context, date);
-
 		if (items.length === 0) return;
 
 		this.listContainer.createEl("h4", {
