@@ -24,6 +24,7 @@ export interface QuizItem {
 	question: string;
 	answer: string;
 	rawQuestionText?: string;
+	blockId?: string;
 }
 
 export interface FsrsPluginSettings {

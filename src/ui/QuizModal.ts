@@ -59,6 +59,16 @@ export class QuizModal extends Modal {
 		this.answer = this.currentItem.answer;
 	}
 
+	async navigateToSource() {
+		this.close();
+		const file = this.currentItem.file;
+		const blockId = this.currentItem.blockId;
+		if (!blockId) return;
+
+		const linktext = `${file.path}#^${blockId}`;
+		await this.app.workspace.openLinkText(linktext, file.path, false);
+	}
+
 	private transformClozesInElement(element: HTMLElement) {
 		const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
 		let node;
@@ -150,7 +160,7 @@ export class QuizModal extends Modal {
 		});
 		timerContainer.createDiv({ cls: "quiz-timer-bar" });
 
-		if (!this.currentItem.isCloze) {
+		if (this.currentItem.blockId) {
 			const linkEl = leftContainer.createEl("a", {
 				cls: "quiz-link-icon",
 			});
@@ -170,16 +180,26 @@ export class QuizModal extends Modal {
 			cls: "quiz-question markdown-reading-view",
 		});
 
-		// Render the original, unmodified question
+		// IMPORTANT: Render the original question text. The cleaning happens in CSS/rendering.
+		let questionToRender = this.currentItem.isCloze
+			? this.currentItem.rawQuestionText!
+			: this.currentItem.question;
+
+		// Remove the marker *only for display* if it's not a cloze card
+		if (!this.currentItem.isCloze) {
+			questionToRender = questionToRender
+				.replace(/\s+\?srs\s+\^[a-zA-Z0-9]+$/, "")
+				.trim();
+		}
+
 		await MarkdownRenderer.render(
 			this.app,
-			this.question,
+			questionToRender,
 			questionDiv,
 			this.currentItem.file.path,
 			this.plugin,
 		);
 
-		// If it's a cloze, transform the rendered elements
 		if (this.currentItem.isCloze) {
 			this.transformClozesInElement(questionDiv);
 		}
@@ -190,15 +210,6 @@ export class QuizModal extends Modal {
 		this.modalEl.addEventListener("keydown", this.boundHandleKeyPress);
 		this.modalEl.tabIndex = -1;
 		this.modalEl.focus();
-	}
-	async navigateToSource() {
-		this.close();
-
-		const file = this.currentItem.file;
-		const blockId = this.currentItem.id;
-
-		const linktext = `${file.path}#^${blockId}`;
-		await this.app.workspace.openLinkText(linktext, file.path, false);
 	}
 
 	handleKeyPress(event: KeyboardEvent) {
