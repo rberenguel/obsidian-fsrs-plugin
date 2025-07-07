@@ -1,7 +1,11 @@
 import { TFile } from "obsidian";
 import { PluginContext } from "../types";
-import { fsrs, createEmptyCard, FSRS } from "../libs/fsrs";
-import { FSRS_CARD_MARKER, FSRS_CARD_END_MARKER } from "./consts";
+import { fsrs, createEmptyCard, FSRS, State } from "../libs/fsrs";
+import {
+	FSRS_CARD_MARKER,
+	FSRS_CARD_END_MARKER,
+	FSRS_CRAM_CARD_MARKER,
+} from "./consts";
 import { FsrsPluginSettings, DEFAULT_SETTINGS, QuizItem, Card } from "../types";
 import { dailyReset } from "./state";
 import { processFile } from "./parser";
@@ -23,6 +27,10 @@ export async function getAllReviewItems(
 	const allItems: QuizItem[] = [];
 	const now = new Date();
 
+	const questionMarkerRegex = new RegExp(
+		`\\s+(\\?srs(?:\\(cram\\))?)\\s*(\\^\\w+)?$`,
+	);
+
 	for (const noteFile of quizNotes) {
 		const { body, schedules } = await processFile(context.app, noteFile);
 		const lines = body.split("\n");
@@ -30,6 +38,7 @@ export async function getAllReviewItems(
 			question: string;
 			answer: string;
 			blockId: string;
+			isCram: boolean;
 		} | null = null;
 
 		const saveCurrentQandA = () => {
@@ -45,6 +54,7 @@ export async function getAllReviewItems(
 					question: currentQandA.question.trim(),
 					answer: currentQandA.answer.trim(),
 					blockId: currentQandA.blockId,
+					isCram: currentQandA.isCram,
 				});
 				currentQandA = null;
 			}
@@ -55,6 +65,7 @@ export async function getAllReviewItems(
 			const isClozeLine = line.includes("::");
 
 			if (srsMarkerIndex !== -1) {
+				const markerMatch = line.match(questionMarkerRegex);
 				// This line is a question. End any previous Q&A card.
 				saveCurrentQandA();
 
@@ -62,7 +73,10 @@ export async function getAllReviewItems(
 				const blockId = blockIdMatch
 					? blockIdMatch[1].trim()
 					: undefined;
-
+				let isCram = false;
+				if (markerMatch && markerMatch.length > 0) {
+					isCram = markerMatch[1] === FSRS_CRAM_CARD_MARKER;
+				}
 				if (isClozeLine && blockId) {
 					// This is a cloze deletion line.
 					const clozeRegex = /::((?:.|\n)*?)::/g;
@@ -82,6 +96,7 @@ export async function getAllReviewItems(
 							answer: clozeContent,
 							rawQuestionText: line,
 							blockId: blockId,
+							isCram: false,
 						});
 					}
 				} else if (blockId) {
@@ -90,6 +105,7 @@ export async function getAllReviewItems(
 						question: line.substring(0, srsMarkerIndex),
 						answer: "",
 						blockId: blockId,
+						isCram: isCram,
 					};
 				}
 			} else if (line.trim() === FSRS_CARD_END_MARKER) {
@@ -119,7 +135,11 @@ export async function getDueReviewItems(
 	// Partition all items into either new or scheduled
 	for (const item of allItems) {
 		// A card is considered new if its state is literally "new" or if it has no state property.
-		if (item.card.state === "new" || !item.card.state) {
+		if (
+			item.card.state === "new" ||
+			!item.card.state ||
+			item.card.state === State.New
+		) {
 			allNewCards.push(item);
 		} else {
 			// It's a scheduled card, so check if it's due.
@@ -136,21 +156,31 @@ export async function getDueReviewItems(
 			}
 		}
 	}
+	const cramNewCards = allNewCards.filter((item) => item.isCram);
+	const regularNewCards = allNewCards.filter((item) => !item.isCram);
 
-	if (context.settings.shuffleNewCards) {
-		for (let i = allNewCards.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[allNewCards[i], allNewCards[j]] = [allNewCards[j], allNewCards[i]];
-		}
-	}
+	const prioritizedNewCards = [...cramNewCards, ...regularNewCards];
+
 	// Determine how many new cards can be shown today
 	const newCardsAvailable =
 		context.settings.maxNewCardsPerDay -
 		context.settings.newCardsReviewedToday;
-	const newCardsForSession =
-		newCardsAvailable > 0 ? allNewCards.slice(0, newCardsAvailable) : [];
 
-	// The final queue is all due reviews plus the capped number of new cards
+	let newCardsForSession =
+		newCardsAvailable > 0
+			? prioritizedNewCards.slice(0, newCardsAvailable)
+			: [];
+
+	// Shuffle the final list of new cards for the session if enabled
+	if (context.settings.shuffleNewCards) {
+		for (let i = newCardsForSession.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[newCardsForSession[i], newCardsForSession[j]] = [
+				newCardsForSession[j],
+				newCardsForSession[i],
+			];
+		}
+	}
 	return [...dueReviews, ...newCardsForSession];
 }
 
@@ -168,7 +198,6 @@ export async function getReviewItemsForDay(
 	);
 
 	for (const item of scheduledItems) {
-		
 		const dueDate = window.moment(item.card.due);
 		if (!dueDate.isValid()) continue;
 

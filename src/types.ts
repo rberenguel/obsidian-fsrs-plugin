@@ -7,6 +7,7 @@ export interface Card {
 	difficulty: number;
 	elapsed_days: number;
 	scheduled_days: number;
+	learning_steps: number; // Keeps track of the current step during the (re)learning stages
 	reps: number;
 	lapses: number;
 	// WARNING: This type is misleading. The fsrs.js library uses a numeric
@@ -25,6 +26,7 @@ export interface QuizItem {
 	answer: string;
 	rawQuestionText?: string;
 	blockId?: string;
+	isCram: boolean;
 }
 
 export interface FsrsPluginSettings {
@@ -38,6 +40,7 @@ export interface FsrsPluginSettings {
 	lastReviewDate: string;
 	newCardsReviewedToday: number;
 	shuffleNewCards: boolean;
+	cramCardRetention: number;
 }
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
@@ -51,6 +54,7 @@ export const DEFAULT_SETTINGS: FsrsPluginSettings = {
 	lastReviewDate: "",
 	newCardsReviewedToday: 0,
 	shuffleNewCards: false,
+	cramCardRetention: 0.99,
 };
 
 export interface PluginContext {

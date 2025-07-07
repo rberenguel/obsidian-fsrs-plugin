@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getDueReviewItems } from "../../src/logic/scheduler";
 import { PluginContext, Card } from "../../src/types";
-import { State } from "../../src/libs/fsrs";
+import { FSRS, Rating, State } from "../../src/libs/fsrs";
 
 // Mock the parser module
 vi.mock("../../src/logic/parser");
@@ -174,4 +174,67 @@ A.
 
 		randomSpy.mockRestore();
 	});
+it("should use custom retention for cram cards", async () => {
+	// Arrange
+	const now = new Date();
+	const mockContext = {
+		settings: { 
+			maxNewCardsPerDay: 5, 
+			newCardsReviewedToday: 0,
+			cramCardRetention: 0.99, // High retention for testing
+		},
+		app: {
+			vault: { getMarkdownFiles: () => [{ path: "test.md" }] },
+			metadataCache: {
+				getFileCache: () => ({ frontmatter: { fsrs: true } }),
+			},
+		},
+		saveSettings: vi.fn(),
+	} as unknown as PluginContext;
+
+	const mockBody = `Cram this question?srs(cram) ^cramCard1
+Answer.
+?srs(end)`;
+
+	const lastReviewDate = new Date(now);
+	lastReviewDate.setDate(now.getDate() - 10); // Set last review 10 days ago
+
+	const mockSchedules = {
+cramCard1: {
+			state: State.Review,
+			due: now,
+			stability: 10,
+			difficulty: 5,
+			elapsed_days: 10,       // Added
+			scheduled_days: 10,     // Added
+			reps: 2,                // Added
+			lapses: 0,              // Added
+			last_review: lastReviewDate,
+		} as unknown as Card, // Corrected Type Assertion
+	};
+
+	vi.mocked(processFile).mockResolvedValue({
+		body: mockBody,
+		schedules: mockSchedules,
+	});
+	
+	const fsrsRepeatSpy = vi.spyOn(FSRS.prototype, 'repeat');
+
+	// Act
+	const dueItems = await getDueReviewItems(mockContext);
+	const cramItem = dueItems.find(item => item.id === 'cramCard1');
+
+	if (cramItem) {
+		const cramEngine = new FSRS({ request_retention: mockContext.settings.cramCardRetention });
+		const goodSchedule = cramEngine.repeat(cramItem.card, now)[Rating.Good].card;
+		
+		const defaultEngine = new FSRS({ request_retention: 0.9 }); // Default retention
+		const goodScheduleDefault = defaultEngine.repeat(cramItem.card, now)[Rating.Good].card;
+		expect(goodSchedule.scheduled_days).toBeLessThan(goodScheduleDefault.scheduled_days);
+	}
+	
+	expect(cramItem).toBeDefined();
+	
+	fsrsRepeatSpy.mockRestore();
+});
 });

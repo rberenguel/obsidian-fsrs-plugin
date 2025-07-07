@@ -9,7 +9,7 @@ import {
 } from "obsidian";
 import type FsrsPlugin from "../main";
 import type { Card, PluginContext, QuizItem } from "../types";
-import { State } from "../libs/fsrs";
+import { fsrs, State } from "../libs/fsrs";
 import { incrementNewCardCount } from "src/logic/state";
 
 async function hash(text: string): Promise<string> {
@@ -330,11 +330,21 @@ export class QuizModal extends Modal {
 		const localRatingEnum = this.mapIntToLocalRating(ratingValue);
 		if (localRatingEnum === undefined) return;
 
+		let schedulingEngine = this.plugin.fsrsInstance;
+		// Check if the card is a cram card
+		if (this.currentItem.isCram) {
+			schedulingEngine = fsrs({
+				request_retention: this.context.settings.cramCardRetention,
+				enable_short_term: true,
+			});
+			new Notice(
+				`Cramming with ${this.context.settings.cramCardRetention * 100}% retention!`,
+			);
+		}
+
 		const now = new Date();
-		const schedules = this.plugin.fsrsInstance.repeat(
-			this.currentItem.card,
-			now,
-		);
+		const schedules = schedulingEngine.repeat(this.currentItem.card, now);
+		console.log(schedules);
 		const updatedCard = schedules[localRatingEnum]?.card;
 
 		if (updatedCard) {

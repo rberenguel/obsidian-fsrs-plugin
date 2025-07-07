@@ -61,12 +61,10 @@ export function buildClozeViewPlugin(plugin: FsrsPlugin) {
 
 			buildDecorations(view: EditorView): DecorationSet {
 				const builder = new RangeSetBuilder<Decoration>();
-				// ... (rest of the setup logic is the same)
 				const currentSelection = view.state.selection.main;
 
 				for (const { from, to } of view.visibleRanges) {
 					const text = view.state.doc.sliceString(from, to);
-					// Updated Regex
 					const clozeRegex = /::(.*?)?::/g;
 					let match;
 
@@ -140,6 +138,7 @@ export class SrsCapsuleWidget extends WidgetType {
 
 	toDOM(view: EditorView): HTMLElement {
 		const styleDetails = this.getStyleDetails();
+		console.log(styleDetails);
 
 		const capsule = document.createElement("span");
 		capsule.addClass("fsrs-srs-capsule", styleDetails.className);
@@ -150,12 +149,12 @@ export class SrsCapsuleWidget extends WidgetType {
 			});
 			setIcon(iconPart, styleDetails.icon);
 		} else {
+			console.log(styleDetails);
 			const iconPart = capsule.createSpan({
 				cls: "fsrs-cloze-icon-part",
 			});
 			setIcon(iconPart, "brain");
 
-			// The text part now gets an additional 'has-icon' class
 			const textPart = capsule.createSpan({
 				cls: ["fsrs-cloze-text-part", "has-icon"],
 			});
@@ -180,6 +179,12 @@ export class SrsCapsuleWidget extends WidgetType {
 					icon: "ban",
 					hoverText: "End of Card",
 					className: "fsrs-srs-style-end",
+				};
+			case "cram":
+				return {
+					icon: "zap",
+					hoverText: "Cram Question",
+					className: "fsrs-srs-style-default",
 				};
 			default:
 				return {
@@ -236,14 +241,11 @@ export function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 				}
 
 				const selection = view.state.selection.main;
+
+				// Inlined Regex to capture the style (e.g., "cram")
 				const questionRegex =
-					/[ \t]+\?srs(?:\(([\w-]+)\))?(\s+\^[a-zA-Z0-9]+)?$/;
-				const endRegex = new RegExp(
-					`^${FSRS_CARD_END_MARKER.replace(
-						/[.*+?^${}()|[\]\\]/g,
-						"\\$&",
-					)}$`,
-				);
+					/[ \t]+\?srs(?:\(([^)]+)\))?(?:\s+\^\w+)?$/;
+				const endRegex = new RegExp(`^\\?srs\\(end\\)$`);
 
 				for (const { from, to } of view.visibleRanges) {
 					let pos = from;
@@ -262,7 +264,6 @@ export function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 								selection.to > markerStart;
 
 							if (!selectionOverlaps) {
-								// Apply a container class to the whole line
 								builder.add(
 									line.from,
 									line.from,
@@ -272,7 +273,7 @@ export function buildSrsMarkerViewPlugin(plugin: FsrsPlugin) {
 										},
 									}),
 								);
-								// Then, replace only the marker with the widget
+								// Pass the captured style (e.g., "cram") to the widget.
 								const style = questionMatch[1] || undefined;
 								builder.add(
 									markerStart,

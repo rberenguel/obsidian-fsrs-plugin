@@ -31,6 +31,7 @@ import {
 	FSRS_CARD_END_MARKER,
 	FSRS_CARD_MARKER,
 	FSRS_DATA_CODE_BLOCK_TYPE,
+	FSRS_CRAM_CARD_MARKER,
 } from "./logic/consts";
 
 export default class FsrsPlugin extends Plugin {
@@ -98,9 +99,9 @@ export default class FsrsPlugin extends Plugin {
 							fm[quizKey] = true;
 						},
 					);
-					new Notice(
+					/*new Notice(
 						`Marked "${view.file.basename}" as a quiz note.`,
-					);
+					);*/
 				}
 
 				const selection = editor.getSelection();
@@ -126,13 +127,24 @@ export default class FsrsPlugin extends Plugin {
 						ch: editor.getLine(cursor.line).length,
 					});
 				} else if (line.trim() === "") {
-					// Line is empty, insert the end marker
 					editor.setLine(cursor.line, FSRS_CARD_END_MARKER);
-				} else if (!line.includes(FSRS_CARD_MARKER)) {
-					// Line has content but is not a question, add the marker
-					const newId = `^${Date.now().toString(36)}${Math.random()
-						.toString(36)
-						.substring(2, 5)}`;
+				} else if (line.includes(FSRS_CRAM_CARD_MARKER)) {
+					// Cycle from cram to regular
+					const newLine = line.replace(
+						FSRS_CRAM_CARD_MARKER,
+						FSRS_CARD_MARKER,
+					);
+					editor.setLine(cursor.line, newLine);
+				} else if (line.includes(FSRS_CARD_MARKER)) {
+					// Cycle from regular to cram
+					const newLine = line.replace(
+						FSRS_CARD_MARKER,
+						FSRS_CRAM_CARD_MARKER,
+					);
+					editor.setLine(cursor.line, newLine);
+				} else {
+					// Add a new marker if none exists
+					const newId = `^${Date.now().toString(36)}${Math.random().toString(36).substring(2, 5)}`;
 					const newLine = `${line.trim()} ${FSRS_CARD_MARKER} ${newId}`;
 					editor.setLine(cursor.line, newLine);
 					editor.setCursor({ line: cursor.line, ch: newLine.length });
@@ -225,12 +237,11 @@ export default class FsrsPlugin extends Plugin {
 			},
 		);
 
-		this.updateUIDisplays();
 		this.app.workspace.onLayoutReady(() => {
 			this.updateUIDisplays();
 			this.intervalId = window.setInterval(
 				() => this.updateUIDisplays(),
-				5 * 60 * 1000,
+				60 * 1000, // Once a minute
 			);
 			this.registerEvent(
 				this.app.metadataCache.on(
@@ -331,6 +342,7 @@ export default class FsrsPlugin extends Plugin {
 			if (document.querySelector(".quiz-modal-content")) return;
 			try {
 				dueCount = (await getDueReviewItems(this.getContext())).length;
+				console.log(dueCount);
 			} catch (error) {
 				console.error("FSRS UI update error:", error);
 				return;
@@ -359,8 +371,6 @@ export default class FsrsPlugin extends Plugin {
 				}
 			});
 	}
-
-	// In main.ts
 
 	async startQuizSession() {
 		const dueItems = await getDueReviewItems(this.getContext());

@@ -55,16 +55,23 @@ This is the standard flashcard format.
 1.  Write your question on a single line.
 2.  At the end of the line, add the marker `?srs`. The plugin will automatically append a unique block ID (`^...`) for tracking.
 3.  Write your answer on the following line(s). The answer can be multiple lines long.
-4.  To end the answer before the note's end or another question's start, simply add `?srs(end)` on its own line. You can do this by using the hotkey `Alt+Q` or the `Mark as quiz / Add card marker` command on an empty line.
+4.  To end the answer, add `?srs(end)` on its own line.
+
+> **New in version 0.6.0: Cram Mode**
+> To mark a card for more aggressive "cramming" reviews, use the marker `?srs(cram)` instead. These cards will use a separate, higher retention rate (configurable in settings) to appear more frequently. Use the `Alt+Q` hotkey on a question line to cycle between `?srs` and `?srs(cram)`.
 
 **Example:**
 
 ```markdown
 What is purple and commutes? ?srs ^math_joke
 An Abelian grape.
+
+This question is for cramming. ?srs(cram) ^cram_joke
+What do you call a crushed angle? A rect-angle!
+
 ?srs(end)
 
-This line is just a regular note, not part of the answer.
+Whatever else.
 ```
 
 #### Cloze Deletion Cards
@@ -91,9 +98,10 @@ The FSRS algorithm was developed to improve upon the {{c1::SM-2}} algorithm used
 - **`Start FSRS Quiz Review`**: Launches the quiz modal with all cards that are currently due.
 - **`Open FSRS Calendar`**: Opens a side pane showing your review schedule on a calendar.
 - **`Mark as quiz / Add card marker`** (`Alt+Q`): A powerful, context-aware command:
-    - If the current note is not a quiz file, it adds `quiz: true` to the frontmatter.
-    - If on a line with text in a quiz file, it appends `?srs ^...` to turn it into a question.
-    - If on an empty line in a quiz file, it inserts the `?srs(end)` marker.
+    - If the current note is not a quiz file, it adds `fsrs: true` to the frontmatter.
+    - If on a line with text, it appends `?srs ^...` to turn it into a question.
+    - **If on a line that is already a question, it cycles the marker between `?srs` and `?srs(cram)`.**
+    - If on an empty line, it inserts the `?srs(end)` marker.
 
 ## How Data is Stored
 
@@ -113,6 +121,18 @@ c1:
   difficulty: 3.0
   [...]
 ```
+
+Markdown
+
+## Settings
+
+The plugin provides several settings to customize your experience:
+
+-   **FSRS frontmatter key**: The key to identify quiz notes (default: `fsrs`).
+-   **Quiz Rating Hotkeys**: Customize the single-character keys for rating cards (Again, Hard, Good, Easy).
+-   **Max new cards per day**: Set a limit on how many new cards are introduced daily.
+-   **Shuffle new cards**: Toggle whether to randomize the order of new cards.
+-   **Cram Card Retention Rate**: Set the desired retention for cards marked with `?srs(cram)` (default: `0.99`).
 
 ## Installation
 

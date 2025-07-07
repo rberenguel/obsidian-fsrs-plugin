@@ -141,5 +141,24 @@ export class FsrsSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+		containerEl.createEl("h3", { text: "Advanced Settings" });
+
+		new Setting(containerEl)
+			.setName("Cram Card Retention Rate")
+			.setDesc(
+				"Set the desired retention rate for cards marked with '?srs(cram)'. Must be a number between 0 and 1 (e.g., 0.99 for 99%).",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("0.99")
+					.setValue(String(this.plugin.settings.cramCardRetention))
+					.onChange(async (value) => {
+						const num = parseFloat(value);
+						if (!isNaN(num) && num > 0 && num <= 1) {
+							this.plugin.settings.cramCardRetention = num;
+							await this.plugin.saveSettings();
+						}
+					}),
+			);
 	}
 }
