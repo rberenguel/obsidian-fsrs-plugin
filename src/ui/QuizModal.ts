@@ -368,7 +368,7 @@ export class QuizModal extends Modal {
 
 		const nextQueue = this.queue.slice(1);
 
-		await this.plugin.updateUIDisplays(nextQueue.length);
+		await this.plugin.updateUIDisplays();
 
 		if (nextQueue.length > 0) {
 			new QuizModal(

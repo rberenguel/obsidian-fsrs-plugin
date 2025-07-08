@@ -8,12 +8,13 @@ import {
 	ICalendarSource,
 } from "obsidian-calendar-ui";
 import { dailyReset } from "src/logic/state";
-import { getAllReviewItems, getReviewItemsForDay } from "src/logic/scheduler"; // Modified import
+import { getReviewItemsForDay } from "src/logic/scheduler"; // Modified import
 import { PluginContext, QuizItem } from "src/types";
 
 export const FSRS_CALENDAR_VIEW_TYPE = "fsrs-calendar-view";
 
 export class CalendarView extends ItemView {
+	private plugin: FsrsPlugin;
 	private context: PluginContext;
 	private calendar: Calendar | null = null;
 	private isRedrawing = false;
@@ -21,9 +22,14 @@ export class CalendarView extends ItemView {
 	private listContainer: HTMLDivElement;
 	private selectedDay: moment.Moment | null = null;
 
-	constructor(leaf: WorkspaceLeaf, context: PluginContext) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		context: PluginContext,
+		plugin: FsrsPlugin,
+	) {
 		super(leaf);
 		this.context = context;
+		this.plugin = plugin;
 	}
 
 	getViewType(): string {
@@ -55,7 +61,8 @@ export class CalendarView extends ItemView {
 			if (this.calendar) this.calendar.$destroy();
 			this.calendarContainer.empty();
 			configureGlobalMomentLocale(window.moment.locale(), "monday");
-			const dueDates = await this.getAllDueDates();
+			const allItems = await this.plugin.getQuizItems();
+			const dueDates = await this.getAllDueDates(allItems);
 
 			const calendarSource: ICalendarSource = {
 				getDailyMetadata: async (date: moment.Moment) => {
@@ -122,7 +129,7 @@ export class CalendarView extends ItemView {
 					localeData: window.moment().localeData(),
 					sources: [calendarSource],
 					showWeekNums: true,
-					onClickDay: (date: moment.Moment) => {
+					onClickDay: async (date: moment.Moment) => {
 						if (
 							this.selectedDay &&
 							this.selectedDay.isSame(date, "day")
@@ -130,7 +137,8 @@ export class CalendarView extends ItemView {
 							this.listContainer.empty();
 							this.selectedDay = null;
 						} else {
-							this.renderDueDateTable(date);
+							const allItems = await this.plugin.getQuizItems();
+							this.renderDueDateTable(date, allItems);
 							this.selectedDay = date;
 						}
 					},
@@ -180,9 +188,12 @@ export class CalendarView extends ItemView {
 		}
 	}
 
-	private async renderDueDateTable(date: moment.Moment) {
+	private async renderDueDateTable(
+		date: moment.Moment,
+		allItems: QuizItem[],
+	) {
 		this.listContainer.empty();
-		const items = await getReviewItemsForDay(this.context, date);
+		const items = await getReviewItemsForDay(this.context, date, allItems);
 		if (items.length === 0) return;
 
 		this.listContainer.createEl("h4", {
@@ -264,14 +275,15 @@ export class CalendarView extends ItemView {
 			this.calendar = null;
 		}
 	}
-	private async getAllDueDates(): Promise<
+	private async getAllDueDates(
+		allItems: QuizItem[],
+	): Promise<
 		Record<
 			string,
 			{ overdue: number; today: number; future: number; new: number }
 		>
 	> {
 		await dailyReset(this.context);
-		const allItems = await getAllReviewItems(this.context);
 		const dueDates: Record<
 			string,
 			{ overdue: number; today: number; future: number; new: number }

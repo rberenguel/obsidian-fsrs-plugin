@@ -41,6 +41,7 @@ export interface FsrsPluginSettings {
 	newCardsReviewedToday: number;
 	shuffleNewCards: boolean;
 	cramCardRetention: number;
+	lastFilterQuery: string;
 }
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: FsrsPluginSettings = {
 	newCardsReviewedToday: 0,
 	shuffleNewCards: false,
 	cramCardRetention: 0.99,
+	lastFilterQuery: "",
 };
 
 export interface PluginContext {

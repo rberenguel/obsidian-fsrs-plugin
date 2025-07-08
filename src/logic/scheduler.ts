@@ -123,10 +123,10 @@ export async function getAllReviewItems(
 
 export async function getDueReviewItems(
 	context: PluginContext,
+	allItems: QuizItem[],
 ): Promise<QuizItem[]> {
 	await dailyReset(context);
 
-	const allItems = await getAllReviewItems(context);
 	const now = new Date();
 
 	const dueReviews: QuizItem[] = [];
@@ -187,8 +187,8 @@ export async function getDueReviewItems(
 export async function getReviewItemsForDay(
 	context: PluginContext,
 	day: moment.Moment,
+	allItems: QuizItem[],
 ): Promise<QuizItem[]> {
-	const allItems = await getAllReviewItems(context);
 	const dayStart = day.clone().startOf("day");
 	const itemsForDay: QuizItem[] = [];
 

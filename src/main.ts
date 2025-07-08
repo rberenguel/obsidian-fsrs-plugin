@@ -12,6 +12,7 @@ import {
 import { load as parseYaml } from "js-yaml";
 import { fsrs, createEmptyCard, FSRS } from "./libs/fsrs";
 import { QuizModal } from "./ui/QuizModal";
+import { QuestionBrowserModal } from "./ui/QuestionBrowserModal";
 import { FsrsSettingTab } from "./ui/FsrsSettingsTab";
 import {
 	FsrsPluginSettings,
@@ -40,6 +41,20 @@ export default class FsrsPlugin extends Plugin {
 	ribbonIconEl: HTMLElement;
 	statusBarItemEl: HTMLElement;
 	intervalId: number;
+	private allQuizItems: QuizItem[] = [];
+	private isCacheValid: boolean = false;
+
+	public async getQuizItems(
+		forceReload: boolean = false,
+	): Promise<QuizItem[]> {
+		if (this.isCacheValid && !forceReload) {
+			return this.allQuizItems;
+		}
+
+		this.allQuizItems = await getAllReviewItems(this.getContext());
+		this.isCacheValid = true;
+		return this.allQuizItems;
+	}
 
 	private getContext(): PluginContext {
 		return {
@@ -67,6 +82,18 @@ export default class FsrsPlugin extends Plugin {
 			name: "Start FSRS Quiz Review",
 			callback: () => {
 				this.startQuizSession();
+			},
+		});
+
+		this.addCommand({
+			id: "simple-fsrs-browse-questions",
+			name: "Simple FSRS: Browse all questions",
+			callback: () => {
+				new QuestionBrowserModal(
+					this.app,
+					this.getContext(),
+					this,
+				).open();
 			},
 		});
 
@@ -155,7 +182,7 @@ export default class FsrsPlugin extends Plugin {
 		this.addSettingTab(new FsrsSettingTab(this.app, this));
 		this.registerView(
 			FSRS_CALENDAR_VIEW_TYPE,
-			(leaf) => new CalendarView(leaf, this.getContext()),
+			(leaf) => new CalendarView(leaf, this.getContext(), this),
 		);
 		this.registerEditorExtension(buildClozeViewPlugin(this));
 		this.registerEditorExtension(buildSrsMarkerViewPlugin(this));
@@ -243,79 +270,17 @@ export default class FsrsPlugin extends Plugin {
 				() => this.updateUIDisplays(),
 				60 * 1000, // Once a minute
 			);
-			this.registerEvent(
-				this.app.metadataCache.on(
-					"changed",
-					async (file, data, cache) => {
-						const quizKey = this.settings.fsrsFrontmatterKey;
-						// Check if the file is marked as a quiz
-						if (
-							cache.frontmatter &&
-							cache.frontmatter[quizKey] === true
-						) {
-							const questionCount = (
-								await getAllReviewItems(this.getContext(), [
-									file,
-								])
-							).length;
-							// Update the frontmatter with the new count
-							this.app.fileManager.processFrontMatter(
-								file,
-								(fm) => {
-									fm["fsrs"] = questionCount;
-								},
-							);
-						}
-						this.updateUIDisplays();
-					},
-				),
-			);
-			this.registerEvent(
-				this.app.vault.on("modify", async (file) => {
-					if (file instanceof TFile) {
-						const content = await this.app.vault.read(file);
+			const onFileChange = () => {
+				this.isCacheValid = false;
+				this.updateUIDisplays();
+			};
 
-						// Manually parse the frontmatter
-						const frontmatterMatch = content.match(
-							/^---\s*\n([\s\S]+?)\n---\s*\n/,
-						);
-						let frontmatter: any = {};
-						if (frontmatterMatch) {
-							try {
-								frontmatter = parseYaml(frontmatterMatch[1]);
-							} catch (e) {
-								// Ignore malformed YAML
-								return;
-							}
-						}
-
-						// Check if the file is a quiz file by looking for the 'fsrs' key
-						if (frontmatter && frontmatter.hasOwnProperty("fsrs")) {
-							const questionCount = (
-								await getAllReviewItems(this.getContext(), [
-									file,
-								])
-							).length;
-
-							// If the count in the frontmatter is different from the actual count, update it.
-							if (frontmatter.fsrs !== questionCount) {
-								await this.app.fileManager.processFrontMatter(
-									file,
-									(fm) => {
-										fm.fsrs = questionCount;
-									},
-								);
-							}
-						}
-					}
-				}),
-			);
 			this.registerEvent(
-				this.app.vault.on("delete", () => this.updateUIDisplays()),
+				this.app.metadataCache.on("changed", onFileChange),
 			);
-			this.registerEvent(
-				this.app.vault.on("rename", () => this.updateUIDisplays()),
-			);
+			this.registerEvent(this.app.vault.on("modify", onFileChange));
+			this.registerEvent(this.app.vault.on("delete", onFileChange));
+			this.registerEvent(this.app.vault.on("rename", onFileChange));
 		});
 	}
 
@@ -337,50 +302,58 @@ export default class FsrsPlugin extends Plugin {
 		}
 	}
 
-	async updateUIDisplays(dueCount?: number) {
-		if (dueCount === undefined) {
-			if (document.querySelector(".quiz-modal-content")) return;
-			try {
-				dueCount = (await getDueReviewItems(this.getContext())).length;
-				console.log(dueCount);
-			} catch (error) {
-				console.error("FSRS UI update error:", error);
-				return;
+	async updateUIDisplays() {
+		// No need for a dueCount parameter anymore, we get it from the cache
+		if (document.querySelector(".quiz-modal-content")) return;
+		try {
+			const allItems = await this.getQuizItems();
+			const dueCount = (
+				await getDueReviewItems(this.getContext(), allItems)
+			).length;
+
+			const existingBadge = this.ribbonIconEl.querySelector(
+				".ribbon-stats-badge",
+			);
+			if (existingBadge) existingBadge.remove();
+			const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? "s" : ""} due`;
+			this.ribbonIconEl.setAttribute("aria-label", tooltip);
+			if (dueCount > 0) {
+				this.ribbonIconEl
+					.createDiv({ cls: "ribbon-stats-badge" })
+					.setText(String(dueCount));
 			}
+
+			this.statusBarItemEl.setText(`FSRS: ${dueCount} due`);
+
+			this.app.workspace
+				.getLeavesOfType(FSRS_CALENDAR_VIEW_TYPE)
+				.forEach((leaf) => {
+					if (leaf.view instanceof CalendarView) {
+						leaf.view.redraw();
+					}
+				});
+		} catch (error) {
+			console.error("FSRS UI update error:", error);
+			return;
 		}
-
-		const existingBadge = this.ribbonIconEl.querySelector(
-			".ribbon-stats-badge",
-		);
-		if (existingBadge) existingBadge.remove();
-		const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? "s" : ""} due`;
-		this.ribbonIconEl.setAttribute("aria-label", tooltip);
-		if (dueCount > 0) {
-			this.ribbonIconEl
-				.createDiv({ cls: "ribbon-stats-badge" })
-				.setText(String(dueCount));
-		}
-
-		this.statusBarItemEl.setText(`FSRS: ${dueCount} due`);
-
-		this.app.workspace
-			.getLeavesOfType(FSRS_CALENDAR_VIEW_TYPE)
-			.forEach((leaf) => {
-				if (leaf.view instanceof CalendarView) {
-					leaf.view.redraw();
-				}
-			});
 	}
 
-	async startQuizSession() {
-		const dueItems = await getDueReviewItems(this.getContext());
-		this.updateUIDisplays(dueItems.length);
-
-		if (dueItems.length === 0) {
-			new Notice(
-				`No notes with frontmatter key "${this.settings.fsrsFrontmatterKey}: true" are due.`,
+	async startQuizSession(items?: QuizItem[]) {
+		if (!items) {
+			const allItems = await this.getQuizItems();
+			const dueItems = await getDueReviewItems(
+				this.getContext(),
+				allItems,
 			);
-			return;
+			this.updateUIDisplays();
+
+			if (dueItems.length === 0) {
+				new Notice(
+					`No notes with frontmatter key "${this.settings.fsrsFrontmatterKey}: true" are due.`,
+				);
+				return;
+			}
+			items = dueItems;
 		}
 
 		const shuffleArray = (array: any[]) => {
@@ -389,15 +362,15 @@ export default class FsrsPlugin extends Plugin {
 				[array[i], array[j]] = [array[j], array[i]];
 			}
 		};
-		shuffleArray(dueItems);
+		shuffleArray(items);
 
 		// Open the first modal, passing the entire queue and the total count
 		new QuizModal(
 			this.app,
 			this.getContext(),
 			this,
-			dueItems,
-			dueItems.length,
+			items,
+			items.length,
 		).open();
 	}
 
@@ -439,5 +412,6 @@ export default class FsrsPlugin extends Plugin {
 		}
 
 		await this.app.vault.modify(file, newFileContent);
+		this.isCacheValid = false;
 	}
 }
