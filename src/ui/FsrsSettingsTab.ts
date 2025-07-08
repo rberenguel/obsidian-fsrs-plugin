@@ -1,6 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type FsrsPlugin from "../main"; // Use 'type' for type-only import
-import { FsrsPluginSettings } from "../types"; // Import from settings.ts
+import type FsrsPlugin from "../main";
 
 export class FsrsSettingTab extends PluginSettingTab {
 	plugin: FsrsPlugin;
@@ -27,21 +26,6 @@ export class FsrsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.fsrsFrontmatterKey)
 					.onChange(async (value) => {
 						this.plugin.settings.fsrsFrontmatterKey = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Quiz hidden comment marker")
-			.setDesc(
-				'The hidden comment marker to identify quiz notes (e.g., "%%quiz%%"). This marker will be invisible in reading view.',
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Example: %%quiz%%")
-					.setValue(this.plugin.settings.quizMarker)
-					.onChange(async (value) => {
-						this.plugin.settings.quizMarker = value.trim();
 						await this.plugin.saveSettings();
 					}),
 			);

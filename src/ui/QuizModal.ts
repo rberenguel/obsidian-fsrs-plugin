@@ -145,6 +145,7 @@ export class QuizModal extends Modal {
 	}
 
 	async onOpen() {
+		this.modalEl.addClass("fsrs-quiz-modal");
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("quiz-modal-content");
@@ -272,11 +273,28 @@ export class QuizModal extends Modal {
 
 		contentEl.createEl("hr");
 
-		const ratingContainer = contentEl.createDiv({
-			cls: "quiz-rating-container",
+		const actionsContainer = contentEl.createDiv({
+			cls: "quiz-actions-container",
 		});
-		ratingContainer.style.display = "flex";
-		ratingContainer.style.justifyContent = "space-around";
+		actionsContainer.style.display = "flex";
+		actionsContainer.style.justifyContent = "space-around";
+
+		const buryButton = actionsContainer.createEl("button", {
+			text: "Bury",
+			cls: `quiz-action-button`,
+		});
+		buryButton.setAttribute("aria-label", "Hide card until the next day");
+		buryButton.onclick = () => this.handleBury();
+
+		const suspendButton = actionsContainer.createEl("button", {
+			text: "Suspend",
+			cls: `quiz-action-button`,
+		});
+		suspendButton.setAttribute(
+			"aria-label",
+			"Exclude card from all future reviews until manually unsuspended",
+		);
+		suspendButton.onclick = () => this.handleSuspend();
 
 		const ratings = [
 			{
@@ -306,7 +324,7 @@ export class QuizModal extends Modal {
 		];
 
 		ratings.forEach(({ text, value, key, color }) => {
-			const button = ratingContainer.createEl("button", {
+			const button = actionsContainer.createEl("button", {
 				text: `${text} (${key.toUpperCase()})`,
 				cls: `quiz-rating-button quiz-rating-${color}`,
 			});
@@ -323,6 +341,48 @@ export class QuizModal extends Modal {
 			container.removeEventListener("click", this.boundShowAnswerOnClick);
 		}
 		this.contentEl.empty();
+	}
+
+	async handleBury() {
+		this.currentItem.card.buriedUntil = moment().endOf("day").toISOString();
+		await this.plugin.updateCardDataInNote(
+			this.currentItem.file,
+			this.currentItem.id,
+			this.currentItem.card,
+		);
+		new Notice("Card buried until tomorrow.");
+		this.proceedToNextCard();
+	}
+
+	async handleSuspend() {
+		this.currentItem.card.suspended = true;
+		await this.plugin.updateCardDataInNote(
+			this.currentItem.file,
+			this.currentItem.id,
+			this.currentItem.card,
+		);
+		new Notice("Card suspended.");
+		this.proceedToNextCard();
+	}
+
+	async proceedToNextCard() {
+		this.close();
+
+		const nextQueue = this.queue.slice(1);
+
+		await this.plugin.updateUIDisplays();
+
+		if (nextQueue.length > 0) {
+			new QuizModal(
+				this.app,
+				this.context,
+				this.plugin,
+				nextQueue,
+				this.totalInSession,
+			).open();
+		} else {
+			new Notice("Quiz session complete!");
+		}
 	}
 
 	async handleRatingByValue(ratingValue: number) {
@@ -364,23 +424,7 @@ export class QuizModal extends Modal {
 			console.error("FSRS Error: Could not update card schedule.");
 		}
 
-		this.close();
-
-		const nextQueue = this.queue.slice(1);
-
-		await this.plugin.updateUIDisplays();
-
-		if (nextQueue.length > 0) {
-			new QuizModal(
-				this.app,
-				this.context,
-				this.plugin,
-				nextQueue,
-				this.totalInSession,
-			).open();
-		} else {
-			new Notice("Quiz session complete!");
-		}
+		this.proceedToNextCard();
 	}
 
 	mapIntToLocalRating(ratingInt: number): Rating | undefined {

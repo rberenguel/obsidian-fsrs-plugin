@@ -3,6 +3,7 @@ import FsrsPlugin from "../main";
 import { PluginContext, QuizItem } from "../types";
 import { QuizModal } from "./QuizModal";
 import moment from "moment";
+import { State } from "src/libs/fsrs";
 
 interface BrowserItem {
 	questionText: string;
@@ -12,6 +13,7 @@ interface BrowserItem {
 	blockId: string;
 	isCram: boolean;
 	dueDateShort: string;
+	status: string;
 	originalIndex: number;
 	selected: boolean;
 	quizItem: QuizItem;
@@ -39,6 +41,7 @@ export class QuestionBrowserModal extends Modal {
 	}
 
 	async onOpen() {
+		this.modalEl.addClass("fsrs-question-browser-modal");
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("question-browser-modal");
@@ -105,6 +108,19 @@ export class QuestionBrowserModal extends Modal {
 			});
 			this.updateVisibleRows();
 		});
+
+		this.tableBody.addEventListener("click", (e) => {
+			const target = e.target as HTMLElement;
+			const link = target.closest(".internal-link");
+			if (link) {
+				e.preventDefault();
+				const href = link.getAttribute("data-href");
+				if (href) {
+					this.app.workspace.openLinkText(href, "", false);
+					this.close();
+				}
+			}
+		});
 	}
 	private updateVisibleRows() {
 		const rows = this.tableBody.querySelectorAll("tr");
@@ -132,9 +148,11 @@ export class QuestionBrowserModal extends Modal {
 			.createEl("th")
 			.createEl("input", { type: "checkbox" });
 		this.createSortableHeader(headerRow, "Question", "questionTextShort");
+		this.createSortableHeader(headerRow, "Status", "status");
 		this.createSortableHeader(headerRow, "File", "fileNameShort");
 		this.createSortableHeader(headerRow, "Type", "isCram");
 		this.createSortableHeader(headerRow, "Due", "dueDateShort");
+		headerRow.createEl("th", { text: "Actions" });
 	}
 
 	private createSortableHeader(
@@ -167,20 +185,39 @@ export class QuestionBrowserModal extends Modal {
 			: item.question;
 		return {
 			questionText: questionText,
-			questionTextShort:
-				questionText.substring(0, 50) +
-				(questionText.length > 50 ? "..." : ""),
+			questionTextShort: questionText,
 			filePath: item.file.path,
 			fileNameShort:
 				item.file.basename.substring(0, 20) +
 				(item.file.basename.length > 20 ? "..." : ""),
 			blockId: item.blockId || item.id,
 			isCram: item.isCram,
-			dueDateShort: this.formatDueDate(item.card.due),
+			dueDateShort:
+				item.card.state === "new" || item.card.state === State.New
+					? "New"
+					: this.formatDueDate(item.card.due),
+			status: this.getCardStatus(item),
 			originalIndex: index,
 			selected: false,
 			quizItem: item,
 		};
+	}
+
+	private getCardStatus(item: QuizItem): string {
+		if (item.card.suspended) {
+			return "Suspended";
+		}
+		if (item.card.buriedUntil) {
+			const buriedUntil = moment(item.card.buriedUntil);
+			if (buriedUntil.isAfter(moment())) {
+				const today = moment().startOf("day");
+				if (buriedUntil.isSame(today, "day")) {
+					return `Buried (Today)`;
+				}
+				return `Buried (${buriedUntil.fromNow()})`;
+			}
+		}
+		return "";
 	}
 
 	private formatDueDate(due: Date): string {
@@ -198,17 +235,20 @@ export class QuestionBrowserModal extends Modal {
 		q?: string;
 		file?: string;
 		type?: string;
+		status?: string;
 		text: string;
 	} {
 		const result: {
 			q?: string;
 			file?: string;
 			type?: string;
+			status?: string;
 			text: string;
 		} = { text: "" };
-		const qRegex = /q:(\S+)/;
-		const fileRegex = /file:(\S+)/;
-		const typeRegex = /type:(cram|normal)/;
+		const qRegex = /q:\s*(\S+)/;
+		const fileRegex = /file:\s*(\S+)/;
+		const typeRegex = /type:\s*(cram|normal)/;
+		const statusRegex = /status:\s*(suspended|buried)/;
 
 		let remainingQuery = query;
 
@@ -230,6 +270,12 @@ export class QuestionBrowserModal extends Modal {
 			remainingQuery = remainingQuery.replace(typeMatch[0], "").trim();
 		}
 
+		const statusMatch = remainingQuery.match(statusRegex);
+		if (statusMatch) {
+			result.status = statusMatch[1];
+			remainingQuery = remainingQuery.replace(statusMatch[0], "").trim();
+		}
+
 		result.text = remainingQuery.toLowerCase();
 		return result;
 	}
@@ -247,11 +293,22 @@ export class QuestionBrowserModal extends Modal {
 			)
 				return false;
 			if (
-				query.text &&
-				!item.questionText.toLowerCase().includes(query.text) &&
-				!item.filePath.toLowerCase().includes(query.text)
-			) {
+				query.status &&
+				!item.status.toLowerCase().includes(query.status)
+			)
 				return false;
+			if (query.text) {
+				const searchText = query.text;
+				const searchableContent = [
+					item.questionText.toLowerCase(),
+					item.filePath.toLowerCase(),
+					item.status.toLowerCase(),
+					item.dueDateShort.toLowerCase(),
+				].join(" ");
+
+				if (!searchableContent.includes(searchText)) {
+					return false;
+				}
 			}
 			return true;
 		});
@@ -263,13 +320,35 @@ export class QuestionBrowserModal extends Modal {
 		const { column, ascending } = this.lastSort;
 
 		this.filteredItems.sort((a, b) => {
-			const aVal = a[column];
-			const bVal = b[column];
 			let comparison = 0;
-			if (typeof aVal === "string" && typeof bVal === "string") {
-				comparison = aVal.localeCompare(bVal);
-			} else if (typeof aVal === "boolean" && typeof bVal === "boolean") {
-				comparison = aVal === bVal ? 0 : aVal ? -1 : 1;
+			if (column === "dueDateShort") {
+				const aDate =
+					a.quizItem.card.state === "new" ||
+					a.quizItem.card.state === State.New
+						? moment(0)
+						: moment(a.quizItem.card.due);
+				const bDate =
+					b.quizItem.card.state === "new" ||
+					b.quizItem.card.state === State.New
+						? moment(0)
+						: moment(b.quizItem.card.due);
+
+				if (aDate.isBefore(bDate)) {
+					comparison = -1;
+				} else if (aDate.isAfter(bDate)) {
+					comparison = 1;
+				}
+			} else {
+				const aVal = a[column];
+				const bVal = b[column];
+				if (typeof aVal === "string" && typeof bVal === "string") {
+					comparison = aVal.localeCompare(bVal);
+				} else if (
+					typeof aVal === "boolean" &&
+					typeof bVal === "boolean"
+				) {
+					comparison = aVal === bVal ? 0 : aVal ? -1 : 1;
+				}
 			}
 			return ascending ? comparison : -comparison;
 		});
@@ -293,6 +372,7 @@ export class QuestionBrowserModal extends Modal {
 			});
 
 			const cellQuestion = row.insertCell();
+			cellQuestion.addClass("fsrs-browser-q-col");
 			cellQuestion.createEl("a", {
 				text: item.questionTextShort,
 				href: `#`,
@@ -302,6 +382,8 @@ export class QuestionBrowserModal extends Modal {
 				},
 				cls: "internal-link",
 			});
+
+			row.insertCell().setText(item.status);
 
 			const cellFile = row.insertCell();
 			cellFile.createEl("a", {
@@ -320,10 +402,58 @@ export class QuestionBrowserModal extends Modal {
 			cellType.title = item.isCram ? "Cram Question" : "Normal Question";
 
 			row.insertCell().setText(item.dueDateShort);
+
+			const cellActions = row.insertCell();
+			const suspendButton = cellActions.createEl("button");
+			const isSuspended = item.quizItem.card.suspended;
+
+			setIcon(
+				suspendButton,
+				isSuspended ? "refresh-cw" : "refresh-cw-off",
+			);
+			suspendButton.setAttribute(
+				"aria-label",
+				isSuspended ? "Unsuspend" : "Suspend",
+			);
+
+			suspendButton.addEventListener("click", async () => {
+				const card = item.quizItem.card;
+				card.suspended = !card.suspended;
+				await this.plugin.updateCardDataInNote(
+					item.quizItem.file,
+					item.quizItem.id,
+					card,
+				);
+				new Notice(
+					`Card has been ${
+						card.suspended ? "suspended" : "unsuspended"
+					}.`,
+				);
+
+				// Update the in-memory item
+				item.status = this.getCardStatus(item.quizItem);
+
+				// Update the DOM
+				row.cells[2].setText(item.status);
+				const isSuspended = item.quizItem.card.suspended;
+				setIcon(
+					suspendButton,
+					isSuspended ? "refresh-cw" : "refresh-cw-off",
+				);
+				suspendButton.setAttribute(
+					"aria-label",
+					isSuspended ? "Unsuspend" : "Suspend",
+				);
+			});
 		});
 
 		this.resultsCountEl.setText(
 			`Showing ${this.filteredItems.length} of ${this.allItems.length} questions`,
 		);
+	}
+
+	async refreshView() {
+		await this.loadAndPrepareData();
+		this.applyFilter();
 	}
 }

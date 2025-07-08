@@ -221,6 +221,12 @@
  * FSRS Question Styling 
  */
 
+ /*
+.fsrs-quiz-modal .modal-content {
+    width: 60vw;
+    max-width: 800px;
+}*/
+
 .fsrs-question-container {
 	padding: 4px 8px !important;
 	border-radius: 2px;
@@ -362,12 +368,15 @@
 	}
 }
 
-.question-browser-modal .modal-content {
+.fsrs-question-browser-modal {
+	height: 80vh;
+	width: 90vw;
+	max-width: 1400px;
+}
+
+.fsrs-question-browser-modal .modal-content {
 	display: flex;
 	flex-direction: column;
-	height: 80vh;
-	width: 80vw;
-	max-width: 1200px;
 }
 
 .question-browser-header {
@@ -417,4 +426,11 @@
 
 .question-browser-modal .hidden {
 	display: none;
+}
+
+.fsrs-browser-q-col {
+	max-width: 400px; /* Adjust as needed */
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }

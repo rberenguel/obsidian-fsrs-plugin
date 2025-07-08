@@ -134,6 +134,17 @@ export async function getDueReviewItems(
 
 	// Partition all items into either new or scheduled
 	for (const item of allItems) {
+		if (item.card.suspended) {
+			continue;
+		}
+
+		if (item.card.buriedUntil) {
+			const buriedUntil = new Date(item.card.buriedUntil);
+			if (buriedUntil > now) {
+				continue;
+			}
+		}
+
 		// A card is considered new if its state is literally "new" or if it has no state property.
 		if (
 			item.card.state === "new" ||

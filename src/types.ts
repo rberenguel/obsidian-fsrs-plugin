@@ -2,6 +2,8 @@ import { App, TFile } from "obsidian";
 
 // WARNING: Keep this interface and ignore anything related to Card inside the fsrs library.
 export interface Card {
+	suspended?: boolean;
+	buriedUntil?: string;
 	due: Date;
 	stability: number;
 	difficulty: number;
@@ -31,7 +33,6 @@ export interface QuizItem {
 
 export interface FsrsPluginSettings {
 	fsrsFrontmatterKey: string;
-	quizMarker: string;
 	ratingAgainKey: string;
 	ratingHardKey: string;
 	ratingGoodKey: string;
@@ -46,7 +47,6 @@ export interface FsrsPluginSettings {
 
 export const DEFAULT_SETTINGS: FsrsPluginSettings = {
 	fsrsFrontmatterKey: "fsrs",
-	quizMarker: "%%quiz%%",
 	ratingAgainKey: "a",
 	ratingHardKey: "r",
 	ratingGoodKey: "s",

@@ -107,6 +107,40 @@ The FSRS algorithm was developed to improve upon the {{c1::SM-2}} algorithm used
 
 All scheduling data (due dates, stability, etc.) for the cards in a note is stored automatically in a single YAML code block at the very end of the file. You generally do not need to edit this block manually, but can do so if needed. Or delete it if you want to make the card be fresh again.
 
+## Advanced Features
+
+Beyond the basic workflow, FSRS for Obsidian offers powerful tools to manage your review sessions.
+
+### Question Browser
+
+The Question Browser gives you a complete overview of all your flashcards in one place. To open it, click the **folder icon** in the left ribbon or run the command `Open Question Browser`.
+
+From the browser, you can:
+
+-   **Filter and Sort**:
+    -   Quickly find cards by typing directly into the search bar. You can search for text in the question, file path, status (`suspended`, `buried`), or due date (`new`, `today`, `tomorrow`).
+    -   Use special operators for more specific searches:
+        -   `q: <text>`: Search only within the question text.
+        -   `file: <path>`: Filter by file path.
+        -   `type: <cram|normal>`: Show only cram or normal cards.
+        -   `status: <suspended|buried>`: Filter by card status.
+    -   Click on any column header to sort the entire table.
+
+-   **Suspend/Unsuspend Cards**:
+    -   Click the icon in the "Actions" column to toggle a card's "suspended" state. Suspended cards are temporarily removed from all review sessions until you unsuspend them.
+
+-   **Start a Custom Study Session**:
+    -   Select one or more cards using the checkboxes.
+    -   Click the **Custom Study** button to start a quiz session with only the selected cards. This is perfect for targeted review before an exam or when you want to focus on a specific topic.
+
+### Suspending and Burying Cards
+
+To give you more control over your reviews, the plugin includes "suspend" and "bury" features, similar to those in other SRS software.
+
+-   **Suspend**: A suspended card is taken out of the review queue indefinitely. It will not appear in any quiz session (standard or custom) until you manually unsuspend it. You can suspend a card from the Question Browser.
+
+-   **Bury**: A buried card is temporarily hidden until the next day. This is useful when you encounter a card you're not ready for or that you've just reviewed outside the plugin. *Currently, burying happens automatically for related cards (e.g., other cloze deletions from the same note) when you review one of them, but manual burying will be added in a future update.*
+
 ---
 
 ```srs-data

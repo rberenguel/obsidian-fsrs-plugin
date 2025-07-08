@@ -77,9 +77,13 @@ export default class FsrsPlugin extends Plugin {
 		);
 		this.ribbonIconEl.addClass("fsrs-ribbon-icon");
 
+		this.addRibbonIcon("folder-search", "Browse Questions", () => {
+			new QuestionBrowserModal(this.app, this.getContext(), this).open();
+		});
+
 		this.addCommand({
 			id: "start-fsrs-quiz-review",
-			name: "Start FSRS Quiz Review",
+			name: "Start review",
 			callback: () => {
 				this.startQuizSession();
 			},
@@ -87,7 +91,7 @@ export default class FsrsPlugin extends Plugin {
 
 		this.addCommand({
 			id: "simple-fsrs-browse-questions",
-			name: "Simple FSRS: Browse all questions",
+			name: "Browse all questions",
 			callback: () => {
 				new QuestionBrowserModal(
 					this.app,
@@ -99,7 +103,7 @@ export default class FsrsPlugin extends Plugin {
 
 		this.addCommand({
 			id: "open-fsrs-calendar-view",
-			name: "Open FSRS Calendar",
+			name: "Open calendar",
 			callback: () => {
 				this.activateView();
 			},
