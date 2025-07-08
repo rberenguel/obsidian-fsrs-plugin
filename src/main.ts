@@ -68,13 +68,9 @@ export default class FsrsPlugin extends Plugin {
 		await this.loadSettings();
 		this.fsrsInstance = fsrs({});
 		this.statusBarItemEl = this.addStatusBarItem();
-		this.ribbonIconEl = this.addRibbonIcon(
-			"brain",
-			"Start Quiz Review",
-			() => {
-				this.startQuizSession();
-			},
-		);
+		this.ribbonIconEl = this.addRibbonIcon("brain", "Start review", () => {
+			this.startQuizSession();
+		});
 		this.ribbonIconEl.addClass("fsrs-ribbon-icon");
 
 		this.addRibbonIcon("folder-search", "Browse Questions", () => {
@@ -319,7 +315,7 @@ export default class FsrsPlugin extends Plugin {
 				".ribbon-stats-badge",
 			);
 			if (existingBadge) existingBadge.remove();
-			const tooltip = `Start Quiz Review - ${dueCount} card${dueCount !== 1 ? "s" : ""} due`;
+			const tooltip = `Start review - ${dueCount} card${dueCount !== 1 ? "s" : ""} due`;
 			this.ribbonIconEl.setAttribute("aria-label", tooltip);
 			if (dueCount > 0) {
 				this.ribbonIconEl

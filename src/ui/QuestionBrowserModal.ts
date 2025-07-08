@@ -147,11 +147,36 @@ export class QuestionBrowserModal extends Modal {
 		this.selectAllCheckbox = headerRow
 			.createEl("th")
 			.createEl("input", { type: "checkbox" });
-		this.createSortableHeader(headerRow, "Question", "questionTextShort");
-		this.createSortableHeader(headerRow, "Status", "status");
-		this.createSortableHeader(headerRow, "File", "fileNameShort");
-		this.createSortableHeader(headerRow, "Type", "isCram");
-		this.createSortableHeader(headerRow, "Due", "dueDateShort");
+		this.createSortableHeader(
+			headerRow,
+			"Question",
+			"questionTextShort",
+			"fsrs-browser-q-col",
+		);
+		this.createSortableHeader(
+			headerRow,
+			"Status",
+			"status",
+			"fsrs-browser-s-col",
+		);
+		this.createSortableHeader(
+			headerRow,
+			"File",
+			"fileNameShort",
+			"fsrs-browser-f-col",
+		);
+		this.createSortableHeader(
+			headerRow,
+			"Type",
+			"isCram",
+			"fsrs-browser-t-col",
+		);
+		this.createSortableHeader(
+			headerRow,
+			"Due",
+			"dueDateShort",
+			"fsrs-browser-d-col",
+		);
 		headerRow.createEl("th", { text: "Actions" });
 	}
 
@@ -159,8 +184,9 @@ export class QuestionBrowserModal extends Modal {
 		row: HTMLTableRowElement,
 		text: string,
 		sortKey: keyof BrowserItem,
+		klass?: string,
 	) {
-		const th = row.createEl("th", { text });
+		const th = row.createEl("th", { text, cls: klass });
 		th.dataset.sortBy = sortKey;
 		th.addEventListener("click", () => {
 			if (this.lastSort.column === sortKey) {
@@ -383,9 +409,12 @@ export class QuestionBrowserModal extends Modal {
 				cls: "internal-link",
 			});
 
-			row.insertCell().setText(item.status);
+			const cellStatus = row.insertCell();
+			cellStatus.addClass("fsrs-browser-s-col");
+			cellStatus.setText(item.status);
 
 			const cellFile = row.insertCell();
+			cellFile.addClass("fsrs-browser-f-col");
 			cellFile.createEl("a", {
 				text: item.fileNameShort,
 				href: `#`,
@@ -400,8 +429,10 @@ export class QuestionBrowserModal extends Modal {
 			const icon = item.isCram ? "zap" : "help-circle";
 			setIcon(cellType, icon);
 			cellType.title = item.isCram ? "Cram Question" : "Normal Question";
-
-			row.insertCell().setText(item.dueDateShort);
+			cellType.addClass("fsrs-browser-t-col");
+			const cellDue = row.insertCell();
+			cellDue.addClass("fsrs-browser-q-col");
+			cellDue.setText(item.dueDateShort);
 
 			const cellActions = row.insertCell();
 			const suspendButton = cellActions.createEl("button");

@@ -276,8 +276,6 @@ export class QuizModal extends Modal {
 		const actionsContainer = contentEl.createDiv({
 			cls: "quiz-actions-container",
 		});
-		actionsContainer.style.display = "flex";
-		actionsContainer.style.justifyContent = "space-around";
 
 		const buryButton = actionsContainer.createEl("button", {
 			text: "Bury",
@@ -295,7 +293,9 @@ export class QuizModal extends Modal {
 			"Exclude card from all future reviews until manually unsuspended",
 		);
 		suspendButton.onclick = () => this.handleSuspend();
-
+		const ratingWrapper = actionsContainer.createEl("div", {
+			cls: `rating-wrapper`,
+		});
 		const ratings = [
 			{
 				text: "Again",
@@ -324,7 +324,7 @@ export class QuizModal extends Modal {
 		];
 
 		ratings.forEach(({ text, value, key, color }) => {
-			const button = actionsContainer.createEl("button", {
+			const button = ratingWrapper.createEl("button", {
 				text: `${text} (${key.toUpperCase()})`,
 				cls: `quiz-rating-button quiz-rating-${color}`,
 			});

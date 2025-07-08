@@ -63,7 +63,12 @@
 	margin-top: 1em;
 }
 
-.quiz-answer {
+.quiz-action-button {
+	float: left;
+}
+
+.rating-wrapper {
+	float: right;
 }
 
 .fsrs-cloze-rendered-content,
@@ -345,29 +350,6 @@
 	word-break: break-all;
 }
 
-@media (max-width: 768px) {
-	.modal.fsrs-quiz-modal {
-		max-width: 95vw;
-		max-height: 90vh;
-		width: auto;
-		height: auto;
-	}
-
-	.modal.fsrs-quiz-modal .quiz-modal-content {
-		overflow-y: auto;
-	}
-
-	.quiz-rating-container {
-		flex-wrap: wrap;
-		justify-content: center;
-	}
-
-	.quiz-rating-button {
-		margin: 5px;
-		padding: 10px 16px;
-	}
-}
-
 .fsrs-question-browser-modal {
 	height: 80vh;
 	width: 90vw;
@@ -429,8 +411,69 @@
 }
 
 .fsrs-browser-q-col {
-	max-width: 400px; /* Adjust as needed */
+	max-width: calc(30vw);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.fsrs-browser-f-col {
+	max-width: calc(10vw);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fsrs-browser-t-col {
+	max-width: calc(3vw);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+
+.fsrs-browser-s-col {
+	max-width: calc(3vw);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fsrs-browser-d-col {
+	max-width: calc(3vw);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+
+
+@media (max-width: 768px) {
+	.modal.fsrs-quiz-modal {
+		max-width: 95vw;
+		max-height: 90vh;
+		width: auto;
+		height: auto;
+	}
+
+.fsrs-question-browser-modal {
+	max-height: 80vh;
+	max-width: 90vw;
+	width: auto;
+	height: auto;
+}
+
+	.modal.fsrs-quiz-modal .quiz-modal-content {
+		overflow-y: auto;
+	}
+
+	.quiz-rating-container {
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.quiz-rating-button {
+		margin: 5px;
+		padding: 10px 16px;
+	}
 }
