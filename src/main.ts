@@ -279,15 +279,16 @@ export default class FsrsPlugin extends Plugin {
 			this.registerEvent(
 				this.app.metadataCache.on("changed", (file, data, cache) => {
 					const quizKey = this.settings.fsrsFrontmatterKey || "fsrs";
+					const frontmatter = cache.frontmatter;
 					if (
-						cache.frontmatter &&
-						cache.frontmatter.hasOwnProperty(quizKey)
+						frontmatter &&
+						frontmatter.hasOwnProperty(quizKey)
 					) {
 						getAllReviewItems(this.getContext(), [file]).then(
 							(items) => {
 								const questionCount = items.length;
 								if (
-									cache.frontmatter[quizKey] !== questionCount
+									frontmatter[quizKey] !== questionCount
 								) {
 									this.app.fileManager.processFrontMatter(
 										file,

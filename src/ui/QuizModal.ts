@@ -33,6 +33,7 @@ export class QuizModal extends Modal {
 	queue: QuizItem[];
 	currentItem: QuizItem;
 	totalInSession: number;
+	backdropEl: HTMLDivElement;
 
 	question: string;
 	answer: string;
@@ -145,6 +146,7 @@ export class QuizModal extends Modal {
 	}
 
 	async onOpen() {
+		this.backdropEl = document.body.createDiv("fsrs-modal-backdrop");
 		this.modalEl.addClass("fsrs-quiz-modal");
 		const { contentEl } = this;
 		contentEl.empty();
@@ -337,6 +339,7 @@ export class QuizModal extends Modal {
 	}
 
 	onClose() {
+		this.backdropEl.remove();
 		this.modalEl.removeEventListener("keydown", this.boundHandleKeyPress);
 		const container = this.contentEl.querySelector(
 			".quiz-question-container",

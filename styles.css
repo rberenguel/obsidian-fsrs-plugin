@@ -504,3 +504,67 @@
 		gap: 0.5em;
 	}
 }
+
+
+.fsrs-settings-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.fsrs-settings-table th,
+.fsrs-settings-table td {
+	border: 1px solid var(--background-modifier-border);
+	padding: 8px;
+	text-align: left;
+}
+
+.fsrs-settings-table th {
+	background-color: var(--background-secondary);
+}
+
+.fsrs-settings-table input[type="text"] {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.fsrs-settings-table .setting-item-description {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.fsrs-settings-table .setting-item-control {
+	width: 150px;
+}
+
+.fsrs-settings-table .setting-item-info {
+	width: 100%;
+}
+
+.fsrs-settings-table .setting-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.fsrs-settings-table .setting-item-name {
+	font-weight: bold;
+}
+
+.fsrs-settings-table .setting-item-description {
+	margin-top: 4px;
+}
+
+.fsrs-settings-table .setting-item-control input {
+	text-align: right;
+}
+
+.fsrs-modal-backdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: rgba(0, 0, 0, 0.5);
+	backdrop-filter: blur(3px);
+	z-index: 1;
+}
