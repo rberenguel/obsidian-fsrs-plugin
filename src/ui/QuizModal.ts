@@ -277,14 +277,18 @@ export class QuizModal extends Modal {
 			cls: "quiz-actions-container",
 		});
 
-		const buryButton = actionsContainer.createEl("button", {
+		const leftActions = actionsContainer.createDiv({
+			cls: "quiz-actions-left",
+		});
+
+		const buryButton = leftActions.createEl("button", {
 			text: "Bury",
 			cls: `quiz-action-button`,
 		});
 		buryButton.setAttribute("aria-label", "Hide card until the next day");
 		buryButton.onclick = () => this.handleBury();
 
-		const suspendButton = actionsContainer.createEl("button", {
+		const suspendButton = leftActions.createEl("button", {
 			text: "Suspend",
 			cls: `quiz-action-button`,
 		});
@@ -293,6 +297,7 @@ export class QuizModal extends Modal {
 			"Exclude card from all future reviews until manually unsuspended",
 		);
 		suspendButton.onclick = () => this.handleSuspend();
+
 		const ratingWrapper = actionsContainer.createEl("div", {
 			cls: `rating-wrapper`,
 		});

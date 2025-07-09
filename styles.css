@@ -63,12 +63,24 @@
 	margin-top: 1em;
 }
 
+.quiz-actions-container {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-top: 1em;
+}
+
+.quiz-actions-left {
+	display: flex;
+	gap: 0.5em;
+}
+
+
 .quiz-action-button {
-	float: left;
 }
 
 .rating-wrapper {
-	float: right;
 }
 
 .fsrs-cloze-rendered-content,
@@ -475,5 +487,19 @@
 	.quiz-rating-button {
 		margin: 5px;
 		padding: 10px 16px;
+		flex-grow: 1;
+	}
+
+	.quiz-actions-container {
+		justify-content: center;
+		gap: 1em;
+	}
+
+	.rating-wrapper {
+		display: flex;
+		justify-content: center;
+		flex-wrap: wrap;
+		width: 100%;
+		gap: 0.5em;
 	}
 }

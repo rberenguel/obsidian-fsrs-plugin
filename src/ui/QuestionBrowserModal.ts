@@ -431,7 +431,7 @@ export class QuestionBrowserModal extends Modal {
 			cellType.title = item.isCram ? "Cram Question" : "Normal Question";
 			cellType.addClass("fsrs-browser-t-col");
 			const cellDue = row.insertCell();
-			cellDue.addClass("fsrs-browser-q-col");
+			cellDue.addClass("fsrs-browser-d-col");
 			cellDue.setText(item.dueDateShort);
 
 			const cellActions = row.insertCell();

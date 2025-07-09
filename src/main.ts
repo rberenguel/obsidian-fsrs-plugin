@@ -157,6 +157,7 @@ export default class FsrsPlugin extends Plugin {
 					editor.setLine(cursor.line, FSRS_CARD_END_MARKER);
 				} else if (line.includes(FSRS_CRAM_CARD_MARKER)) {
 					// Cycle from cram to regular
+					// The order of these checks is important, as FSRS_CRAM_CARD_MARKER includes FSRS_CARD_MARKER
 					const newLine = line.replace(
 						FSRS_CRAM_CARD_MARKER,
 						FSRS_CARD_MARKER,
