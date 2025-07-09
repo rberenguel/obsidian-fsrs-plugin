@@ -280,7 +280,6 @@ export class QuizModal extends Modal {
 		const leftActions = actionsContainer.createDiv({
 			cls: "quiz-actions-left",
 		});
-
 		const buryButton = leftActions.createEl("button", {
 			text: "Bury",
 			cls: `quiz-action-button`,

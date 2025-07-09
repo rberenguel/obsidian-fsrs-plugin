@@ -277,7 +277,30 @@ export default class FsrsPlugin extends Plugin {
 			};
 
 			this.registerEvent(
-				this.app.metadataCache.on("changed", onFileChange),
+				this.app.metadataCache.on("changed", (file, data, cache) => {
+					const quizKey = this.settings.fsrsFrontmatterKey || "fsrs";
+					if (
+						cache.frontmatter &&
+						cache.frontmatter.hasOwnProperty(quizKey)
+					) {
+						getAllReviewItems(this.getContext(), [file]).then(
+							(items) => {
+								const questionCount = items.length;
+								if (
+									cache.frontmatter[quizKey] !== questionCount
+								) {
+									this.app.fileManager.processFrontMatter(
+										file,
+										(fm) => {
+											fm[quizKey] = questionCount;
+										},
+									);
+								}
+							},
+						);
+					}
+					onFileChange();
+				}),
 			);
 			this.registerEvent(this.app.vault.on("modify", onFileChange));
 			this.registerEvent(this.app.vault.on("delete", onFileChange));

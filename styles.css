@@ -76,11 +76,14 @@
 	gap: 0.5em;
 }
 
-
 .quiz-action-button {
 }
 
 .rating-wrapper {
+}
+
+.rating-wrapper > button {
+	margin-left: 0.2em;
 }
 
 .fsrs-cloze-rendered-content,
@@ -238,7 +241,7 @@
  * FSRS Question Styling 
  */
 
- /*
+/*
 .fsrs-quiz-modal .modal-content {
     width: 60vw;
     max-width: 800px;
@@ -443,7 +446,6 @@
 	text-overflow: ellipsis;
 }
 
-
 .fsrs-browser-s-col {
 	max-width: calc(3vw);
 	white-space: nowrap;
@@ -458,8 +460,6 @@
 	text-overflow: ellipsis;
 }
 
-
-
 @media (max-width: 768px) {
 	.modal.fsrs-quiz-modal {
 		max-width: 95vw;
@@ -468,12 +468,12 @@
 		height: auto;
 	}
 
-.fsrs-question-browser-modal {
-	max-height: 80vh;
-	max-width: 90vw;
-	width: auto;
-	height: auto;
-}
+	.fsrs-question-browser-modal {
+		max-height: 80vh;
+		max-width: 90vw;
+		width: auto;
+		height: auto;
+	}
 
 	.modal.fsrs-quiz-modal .quiz-modal-content {
 		overflow-y: auto;
@@ -485,9 +485,10 @@
 	}
 
 	.quiz-rating-button {
-		margin: 5px;
-		padding: 10px 16px;
+		margin: 3px;
+		padding: 5px 8px;
 		flex-grow: 1;
+		font-size: 85%;
 	}
 
 	.quiz-actions-container {
