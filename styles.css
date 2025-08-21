@@ -199,6 +199,11 @@
 	z-index: 1;
 }
 
+#calendar-container .ribbon-stats-badge {
+	position: unset;
+	min-width: 24px;
+}
+
 /* Calendar view stuff */
 
 .fsrs-calendar-badge {
@@ -460,6 +465,16 @@
 	text-overflow: ellipsis;
 }
 
+.fsrs-reply-modal-textarea {
+	width: 100%;
+	margin-bottom: 1em;
+	min-height: 6em;
+}
+
+.fsrs-similarity-sup {
+	font-size: 60%;
+}
+
 @media (max-width: 768px) {
 	.modal.fsrs-quiz-modal {
 		max-width: 95vw;
@@ -504,7 +519,6 @@
 		gap: 0.5em;
 	}
 }
-
 
 .fsrs-settings-table {
 	width: 100%;

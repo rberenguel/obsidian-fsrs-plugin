@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getDueReviewItems, getAllReviewItems } from "../../src/logic/scheduler";
+import {
+	getDueReviewItems,
+	getAllReviewItems,
+} from "../../src/logic/scheduler";
 import { PluginContext, Card, QuizItem } from "../../src/types";
 import { FSRS, Rating, State } from "../../src/libs/fsrs";
 
@@ -271,10 +274,9 @@ describe("Scheduler", () => {
 			const cramEngine = new FSRS({
 				request_retention: mockContext.settings.cramCardRetention,
 			});
-			const goodSchedule = cramEngine.repeat(
-				cramItem.card,
-				now,
-			)[Rating.Good].card;
+			const goodSchedule = cramEngine.repeat(cramItem.card, now)[
+				Rating.Good
+			].card;
 
 			const defaultEngine = new FSRS({ request_retention: 0.9 }); // Default retention
 			const goodScheduleDefault = defaultEngine.repeat(

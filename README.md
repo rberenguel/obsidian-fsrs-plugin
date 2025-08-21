@@ -117,29 +117,31 @@ The Question Browser gives you a complete overview of all your flashcards in one
 
 From the browser, you can:
 
--   **Filter and Sort**:
-    -   Quickly find cards by typing directly into the search bar. You can search for text in the question, file path, status (`suspended`, `buried`), or due date (`new`, `today`, `tomorrow`).
-    -   Use special operators for more specific searches:
-        -   `q: <text>`: Search only within the question text.
-        -   `file: <path>`: Filter by file path.
-        -   `type: <cram|normal>`: Show only cram or normal cards.
-        -   `status: <suspended|buried>`: Filter by card status.
-    -   Click on any column header to sort the entire table.
+- **Filter and Sort**:
 
--   **Suspend/Unsuspend Cards**:
-    -   Click the icon in the "Actions" column to toggle a card's "suspended" state. Suspended cards are temporarily removed from all review sessions until you unsuspend them.
+    - Quickly find cards by typing directly into the search bar. You can search for text in the question, file path, status (`suspended`, `buried`), or due date (`new`, `today`, `tomorrow`).
+    - Use special operators for more specific searches:
+        - `q: <text>`: Search only within the question text.
+        - `file: <path>`: Filter by file path.
+        - `type: <cram|normal>`: Show only cram or normal cards.
+        - `status: <suspended|buried>`: Filter by card status.
+    - Click on any column header to sort the entire table.
 
--   **Start a Custom Study Session**:
-    -   Select one or more cards using the checkboxes.
-    -   Click the **Custom Study** button to start a quiz session with only the selected cards. This is perfect for targeted review before an exam or when you want to focus on a specific topic.
+- **Suspend/Unsuspend Cards**:
+
+    - Click the icon in the "Actions" column to toggle a card's "suspended" state. Suspended cards are temporarily removed from all review sessions until you unsuspend them.
+
+- **Start a Custom Study Session**:
+    - Select one or more cards using the checkboxes.
+    - Click the **Custom Study** button to start a quiz session with only the selected cards. This is perfect for targeted review before an exam or when you want to focus on a specific topic.
 
 ### Suspending and Burying Cards
 
 To give you more control over your reviews, the plugin includes "suspend" and "bury" features, similar to those in other SRS software.
 
--   **Suspend**: A suspended card is taken out of the review queue indefinitely. It will not appear in any quiz session (standard or custom) until you manually unsuspend it. You can suspend a card from the Question Browser.
+- **Suspend**: A suspended card is taken out of the review queue indefinitely. It will not appear in any quiz session (standard or custom) until you manually unsuspend it. You can suspend a card from the Question Browser.
 
--   **Bury**: A buried card is temporarily hidden until the next day. This is useful when you encounter a card you're not ready for or that you've just reviewed outside the plugin. *Currently, burying happens automatically for related cards (e.g., other cloze deletions from the same note) when you review one of them, but manual burying will be added in a future update.*
+- **Bury**: A buried card is temporarily hidden until the next day. This is useful when you encounter a card you're not ready for or that you've just reviewed outside the plugin. _Currently, burying happens automatically for related cards (e.g., other cloze deletions from the same note) when you review one of them, but manual burying will be added in a future update._
 
 ---
 
@@ -162,11 +164,11 @@ Markdown
 
 The plugin provides several settings to customize your experience:
 
--   **FSRS frontmatter key**: The key to identify quiz notes (default: `fsrs`).
--   **Quiz Rating Hotkeys**: Customize the single-character keys for rating cards (Again, Hard, Good, Easy).
--   **Max new cards per day**: Set a limit on how many new cards are introduced daily.
--   **Shuffle new cards**: Toggle whether to randomize the order of new cards.
--   **Cram Card Retention Rate**: Set the desired retention for cards marked with `?srs(cram)` (default: `0.99`).
+- **FSRS frontmatter key**: The key to identify quiz notes (default: `fsrs`).
+- **Quiz Rating Hotkeys**: Customize the single-character keys for rating cards (Again, Hard, Good, Easy).
+- **Max new cards per day**: Set a limit on how many new cards are introduced daily.
+- **Shuffle new cards**: Toggle whether to randomize the order of new cards.
+- **Cram Card Retention Rate**: Set the desired retention for cards marked with `?srs(cram)` (default: `0.99`).
 
 ## Installation
 

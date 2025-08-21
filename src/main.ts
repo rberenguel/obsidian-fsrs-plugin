@@ -42,7 +42,8 @@ export default class FsrsPlugin extends Plugin {
 	statusBarItemEl: HTMLElement;
 	intervalId: number;
 	private allQuizItems: QuizItem[] = [];
-	private isCacheValid: boolean = false;
+	public isCacheValid: boolean = false;
+	public clauPlugin: any;
 
 	public async getQuizItems(
 		forceReload: boolean = false,
@@ -266,6 +267,12 @@ export default class FsrsPlugin extends Plugin {
 		);
 
 		this.app.workspace.onLayoutReady(() => {
+			this.clauPlugin = (this.app as any).plugins.plugins["clau"];
+			if (!this.clauPlugin) {
+				console.log(
+					"FSRS plugin: Clau plugin not found. Semantic features will be disabled.",
+				);
+			}
 			this.updateUIDisplays();
 			this.intervalId = window.setInterval(
 				() => this.updateUIDisplays(),
@@ -280,16 +287,11 @@ export default class FsrsPlugin extends Plugin {
 				this.app.metadataCache.on("changed", (file, data, cache) => {
 					const quizKey = this.settings.fsrsFrontmatterKey || "fsrs";
 					const frontmatter = cache.frontmatter;
-					if (
-						frontmatter &&
-						frontmatter.hasOwnProperty(quizKey)
-					) {
+					if (frontmatter && frontmatter.hasOwnProperty(quizKey)) {
 						getAllReviewItems(this.getContext(), [file]).then(
 							(items) => {
 								const questionCount = items.length;
-								if (
-									frontmatter[quizKey] !== questionCount
-								) {
+								if (frontmatter[quizKey] !== questionCount) {
 									this.app.fileManager.processFrontMatter(
 										file,
 										(fm) => {
@@ -437,6 +439,5 @@ export default class FsrsPlugin extends Plugin {
 		}
 
 		await this.app.vault.modify(file, newFileContent);
-		this.isCacheValid = false;
 	}
 }

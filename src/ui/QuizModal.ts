@@ -11,6 +11,7 @@ import type FsrsPlugin from "../main";
 import type { Card, PluginContext, QuizItem } from "../types";
 import { fsrs, State } from "../libs/fsrs";
 import { incrementNewCardCount } from "src/logic/state";
+import { ReplyModal } from "./ReplyModal";
 
 async function hash(text: string): Promise<string> {
 	const encoder = new TextEncoder();
@@ -33,7 +34,6 @@ export class QuizModal extends Modal {
 	queue: QuizItem[];
 	currentItem: QuizItem;
 	totalInSession: number;
-	backdropEl: HTMLDivElement;
 
 	question: string;
 	answer: string;
@@ -146,7 +146,6 @@ export class QuizModal extends Modal {
 	}
 
 	async onOpen() {
-		this.backdropEl = document.body.createDiv("fsrs-modal-backdrop");
 		this.modalEl.addClass("fsrs-quiz-modal");
 		const { contentEl } = this;
 		contentEl.empty();
@@ -214,7 +213,7 @@ export class QuizModal extends Modal {
 		if (!this.isAnswerShown) {
 			if (event.key === " ") {
 				event.preventDefault();
-				this.triggerDisplayAnswer();
+				this.triggerReplyModal(); // Go to reply modal
 			}
 		} else {
 			const keyMap: Record<string, number> = {
@@ -237,16 +236,29 @@ export class QuizModal extends Modal {
 			cls: "quiz-show-answer-hint",
 		});
 		hintText.style.textAlign = "center";
-		this.boundShowAnswerOnClick = this.triggerDisplayAnswer.bind(this);
+		this.boundShowAnswerOnClick = this.triggerReplyModal.bind(this); // Changed
 		container.addEventListener("click", this.boundShowAnswerOnClick);
 	}
-
-	triggerDisplayAnswer() {
+	triggerReplyModal() {
 		if (this.isAnswerShown) return;
 
-		this.isAnswerShown = true;
-		this.displayAnswer();
+		new ReplyModal(
+			this.app,
+			this.context,
+			this.plugin,
+			this.currentItem,
+			(userAnswer) => {
+				// This callback runs when the ReplyModal is done.
+				// Now we can show the answer in *this* modal.
+				this.showAnswerAndRatings(userAnswer);
+			},
+		).open();
+	}
 
+	async showAnswerAndRatings(userAnswer: string) {
+		this.isAnswerShown = true;
+
+		// Remove the initial "show answer" prompt
 		const container = this.contentEl.querySelector(
 			".quiz-question-container",
 		);
@@ -255,23 +267,77 @@ export class QuizModal extends Modal {
 			container.querySelector(".quiz-show-answer-hint")?.remove();
 		}
 		this.modalEl.focus();
-	}
 
-	displayAnswer() {
+		// Now, build the answer section
 		const { contentEl } = this;
 		const answerContainer = contentEl.createDiv({
 			cls: "quiz-answer-container",
 		});
-		const answerDiv = answerContainer.createEl("div", {
+
+		// Display the user's typed answer
+		const userAnswerEl = answerContainer.createDiv({
+			cls: "quiz-user-answer",
+		});
+		userAnswerEl.createEl("strong", { text: "Your Answer:" });
+		userAnswerEl.createEl("p", { text: userAnswer || "(empty)" });
+
+		// Display the correct answer
+		const correctAnswerEl = answerContainer.createDiv({
+			cls: "quiz-correct-answer",
+		});
+		correctAnswerEl.createEl("strong", { text: "Correct Answer:" });
+		const answerDiv = correctAnswerEl.createDiv({
 			cls: "quiz-answer markdown-reading-view",
 		});
-		MarkdownRenderer.render(
+
+		const tempDiv = createDiv();
+		await MarkdownRenderer.render(
 			this.app,
 			this.answer,
-			answerDiv,
+			tempDiv,
 			this.currentItem.file.path,
 			this.plugin,
 		);
+		answerDiv.innerHTML = tempDiv.innerHTML;
+
+		// --- Vector Similarity Highlighting Logic ---
+		const clauPlugin = this.plugin.clauPlugin;
+		console.log(clauPlugin, clauPlugin?.semanticSearchProvider);
+
+		// The fix is here: access clauPlugin.search.semanticSearchProvider
+		console.log(userAnswer);
+		if (userAnswer && clauPlugin) {
+			const userAnswerVector =
+				await clauPlugin.getDocumentVector(userAnswer);
+			console.log(userAnswerVector);
+			if (userAnswerVector.length > 0) {
+				const renderedParagraphs = answerDiv.querySelectorAll("p, li");
+				console.log(renderedParagraphs);
+				for (const block of Array.from(renderedParagraphs)) {
+					const blockText = (block as HTMLElement).textContent || "";
+					console.log(blockText);
+					if (blockText.trim().length === 0) continue;
+					const paragraphVector =
+						await clauPlugin.getDocumentVector(blockText);
+
+					if (paragraphVector.length > 0) {
+						const similarity = this.cosineSimilarity(
+							userAnswerVector,
+							paragraphVector,
+						);
+						const color = this.interpolateColor(similarity);
+						(block as HTMLElement).style.backgroundColor = color;
+						(block as HTMLElement).title =
+							`Similarity: ${similarity.toFixed(2)}`; // Show score on hover
+						block.createEl("sup", {
+							text: `${similarity.toFixed(2)}`,
+							cls: "fsrs-similarity-sup",
+						});
+					}
+				}
+			}
+		}
+		// --- End of Logic ---
 
 		contentEl.createEl("hr");
 
@@ -279,17 +345,14 @@ export class QuizModal extends Modal {
 			cls: "quiz-actions-container",
 		});
 
-		const leftActions = actionsContainer.createDiv({
-			cls: "quiz-actions-left",
-		});
-		const buryButton = leftActions.createEl("button", {
+		const buryButton = actionsContainer.createEl("button", {
 			text: "Bury",
 			cls: `quiz-action-button`,
 		});
 		buryButton.setAttribute("aria-label", "Hide card until the next day");
 		buryButton.onclick = () => this.handleBury();
 
-		const suspendButton = leftActions.createEl("button", {
+		const suspendButton = actionsContainer.createEl("button", {
 			text: "Suspend",
 			cls: `quiz-action-button`,
 		});
@@ -298,7 +361,6 @@ export class QuizModal extends Modal {
 			"Exclude card from all future reviews until manually unsuspended",
 		);
 		suspendButton.onclick = () => this.handleSuspend();
-
 		const ratingWrapper = actionsContainer.createEl("div", {
 			cls: `rating-wrapper`,
 		});
@@ -338,8 +400,180 @@ export class QuizModal extends Modal {
 		});
 	}
 
+	// Replace the old cosineSimilarity function with this robust version
+	private cosineSimilarity(vecA: number[], vecB: number[]): number {
+		if (vecA.length !== vecB.length || vecA.length === 0) {
+			return 0;
+		}
+
+		let dotProduct = 0.0;
+		let magnitudeA = 0.0;
+		let magnitudeB = 0.0;
+
+		for (let i = 0; i < vecA.length; i++) {
+			dotProduct += vecA[i] * vecB[i];
+			magnitudeA += vecA[i] * vecA[i];
+			magnitudeB += vecB[i] * vecB[i];
+		}
+
+		magnitudeA = Math.sqrt(magnitudeA);
+		magnitudeB = Math.sqrt(magnitudeB);
+
+		if (magnitudeA === 0 || magnitudeB === 0) {
+			return 0;
+		}
+
+		return dotProduct / (magnitudeA * magnitudeB);
+	}
+
+	// The rest of the file (showAnswerAndRatings, etc.) remains unchanged.
+	// ...
+
+	async displayAnswer(userAnswer: string) {
+		const { contentEl } = this;
+		const answerContainer = contentEl.createDiv({
+			cls: "quiz-answer-container",
+		});
+
+		const userAnswerEl = answerContainer.createDiv({
+			cls: "quiz-user-answer",
+		});
+		userAnswerEl.createEl("strong", { text: "Your Answer:" });
+		userAnswerEl.createEl("p", { text: userAnswer || "(empty)" });
+
+		const correctAnswerEl = answerContainer.createDiv({
+			cls: "quiz-correct-answer",
+		});
+		correctAnswerEl.createEl("strong", { text: "Correct Answer:" });
+		const answerDiv = correctAnswerEl.createDiv({
+			cls: "quiz-answer markdown-reading-view",
+		});
+
+		const tempDiv = createDiv();
+		await MarkdownRenderer.render(
+			this.app,
+			this.answer,
+			tempDiv,
+			this.currentItem.file.path,
+			this.plugin,
+		);
+		answerDiv.innerHTML = tempDiv.innerHTML;
+
+		// --- Vector Similarity Highlighting Logic ---
+		const clauPlugin = this.plugin.clauPlugin;
+		if (userAnswer && clauPlugin) {
+			const searchProvider = clauPlugin.semanticSearchProvider;
+			const userAnswerVector =
+				await searchProvider.getQueryVector(userAnswer);
+
+			if (userAnswerVector.length > 0) {
+				console.log("HELLO");
+				const renderedParagraphs = answerDiv.querySelectorAll("p, li");
+				console.log(renderedParagraphs);
+				for (const block of Array.from(renderedParagraphs)) {
+					const blockText = (block as HTMLElement).textContent || "";
+					console.log(blockText);
+					if (blockText.trim().length === 0) continue;
+					const paragraphVector =
+						await searchProvider.getQueryVector(blockText);
+
+					if (paragraphVector.length > 0) {
+						const similarity = this.cosineSimilarity(
+							userAnswerVector,
+							paragraphVector,
+						);
+						const color = this.interpolateColor(similarity);
+						(block as HTMLElement).style.backgroundColor = color;
+						(block as HTMLElement).title =
+							`Similarity: ${similarity.toFixed(2)}`; // Show score on hover
+					}
+				}
+			}
+		}
+
+		contentEl.createEl("hr");
+
+		const actionsContainer = contentEl.createDiv({
+			cls: "quiz-actions-container",
+		});
+
+		const buryButton = actionsContainer.createEl("button", {
+			text: "Bury",
+			cls: `quiz-action-button`,
+		});
+		buryButton.setAttribute("aria-label", "Hide card until the next day");
+		buryButton.onclick = () => this.handleBury();
+
+		const suspendButton = actionsContainer.createEl("button", {
+			text: "Suspend",
+			cls: `quiz-action-button`,
+		});
+		suspendButton.setAttribute(
+			"aria-label",
+			"Exclude card from all future reviews until manually unsuspended",
+		);
+		suspendButton.onclick = () => this.handleSuspend();
+		const ratingWrapper = actionsContainer.createEl("div", {
+			cls: `rating-wrapper`,
+		});
+		const ratings = [
+			{
+				text: "Again",
+				value: 1,
+				key: this.plugin.settings.ratingAgainKey,
+				color: "again",
+			},
+			{
+				text: "Hard",
+				value: 2,
+				key: this.plugin.settings.ratingHardKey,
+				color: "hard",
+			},
+			{
+				text: "Good",
+				value: 3,
+				key: this.plugin.settings.ratingGoodKey,
+				color: "good",
+			},
+			{
+				text: "Easy",
+				value: 4,
+				key: this.plugin.settings.ratingEasyKey,
+				color: "easy",
+			},
+		];
+
+		ratings.forEach(({ text, value, key, color }) => {
+			const button = ratingWrapper.createEl("button", {
+				text: `${text} (${key.toUpperCase()})`,
+				cls: `quiz-rating-button quiz-rating-${color}`,
+			});
+			button.onclick = () => this.handleRatingByValue(value);
+		});
+	}
+	private interpolateColor(similarity: number): string {
+		const yellow = { r: 181, g: 137, b: 0 }; // rgba(181, 137, 0, 0.3)
+		const green = { r: 100, g: 206, b: 0 }; // rgba(100, 206, 36, 0.3)
+		const lowerBound = 0.3;
+		const upperBound = 0.9;
+
+		if (similarity < lowerBound) {
+			return "transparent";
+		}
+		if (similarity >= upperBound) {
+			return `rgba(${green.r}, ${green.g}, ${green.b}, 0.3)`;
+		}
+
+		// Calculate the interpolation factor (0 at lowerBound, 1 at upperBound)
+		const factor = (similarity - lowerBound) / (upperBound - lowerBound);
+
+		const r = Math.round(yellow.r + factor * (green.r - yellow.r));
+		const g = Math.round(yellow.g + factor * (green.g - yellow.g));
+		const b = Math.round(yellow.b + factor * (green.b - yellow.b));
+
+		return `rgba(${r}, ${g}, ${b}, 0.3)`;
+	}
 	onClose() {
-		this.backdropEl.remove();
 		this.modalEl.removeEventListener("keydown", this.boundHandleKeyPress);
 		const container = this.contentEl.querySelector(
 			".quiz-question-container",
@@ -405,7 +639,9 @@ export class QuizModal extends Modal {
 				enable_short_term: true,
 			});
 			new Notice(
-				`Cramming with ${this.context.settings.cramCardRetention * 100}% retention!`,
+				`Cramming with ${
+					this.context.settings.cramCardRetention * 100
+				}% retention!`,
 			);
 		}
 

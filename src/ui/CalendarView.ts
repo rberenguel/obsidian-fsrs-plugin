@@ -8,7 +8,7 @@ import {
 	ICalendarSource,
 } from "obsidian-calendar-ui";
 import { dailyReset } from "src/logic/state";
-import { getReviewItemsForDay } from "src/logic/scheduler"; // Modified import
+import { getDueReviewItems, getReviewItemsForDay } from "src/logic/scheduler";
 import { PluginContext, QuizItem } from "src/types";
 
 export const FSRS_CALENDAR_VIEW_TYPE = "fsrs-calendar-view";
@@ -183,6 +183,44 @@ export class CalendarView extends ItemView {
 					},
 				},
 			});
+
+			const dueItems = await getDueReviewItems(this.context, allItems);
+			const dueCount = dueItems.length;
+			const monthHeader =
+				this.calendarContainer.querySelector<HTMLHeadingElement>("h3");
+			if (monthHeader) {
+				// Clear any existing badge to prevent duplicates on redraw
+				monthHeader.querySelector(".ribbon-stats-badge")?.remove();
+
+				// Style the header to be centered and clickable
+				monthHeader.style.cursor = "pointer";
+				monthHeader.style.display = "flex";
+				monthHeader.style.alignItems = "center";
+				monthHeader.style.justifyContent = "center";
+				monthHeader.style.gap = "8px";
+				monthHeader.style.width = "fit-content";
+				monthHeader.style.margin = "0 auto";
+
+				const tooltip = `Start review - ${dueCount} card${
+					dueCount !== 1 ? "s" : ""
+				} due`;
+				monthHeader.setAttribute("aria-label", tooltip);
+
+				if (dueCount > 0) {
+					monthHeader
+						.createDiv({ cls: "ribbon-stats-badge" })
+						.setText(String(dueCount));
+				}
+
+				monthHeader.addEventListener("click", () => {
+					this.plugin.startQuizSession(dueItems);
+					if (this.app.isMobile) {
+						this.app.commands.executeCommandById(
+							"app:toggle-right-sidebar",
+						);
+					}
+				});
+			}
 		} finally {
 			this.isRedrawing = false;
 		}
