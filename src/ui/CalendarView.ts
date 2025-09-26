@@ -214,11 +214,6 @@ export class CalendarView extends ItemView {
 
 				monthHeader.addEventListener("click", () => {
 					this.plugin.startQuizSession(dueItems);
-					if (this.app.isMobile) {
-						this.app.commands.executeCommandById(
-							"app:toggle-right-sidebar",
-						);
-					}
 				});
 			}
 		} finally {

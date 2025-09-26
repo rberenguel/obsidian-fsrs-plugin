@@ -60,6 +60,20 @@ export function buildClozeViewPlugin(plugin: FsrsPlugin) {
 			}
 
 			buildDecorations(view: EditorView): DecorationSet {
+				const quizKey =
+					plugin.settings.fsrsFrontmatterKey ||
+					DEFAULT_SETTINGS.fsrsFrontmatterKey;
+				const currentFile =
+					plugin.app.workspace.getActiveViewOfType(
+						MarkdownView,
+					)?.file;
+				if (!currentFile) return Decoration.none;
+
+				const fileCache =
+					plugin.app.metadataCache.getFileCache(currentFile);
+				if (!fileCache?.frontmatter?.[quizKey]) {
+					return Decoration.none;
+				}
 				const builder = new RangeSetBuilder<Decoration>();
 				const currentSelection = view.state.selection.main;
 
